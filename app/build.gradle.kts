@@ -62,4 +62,6 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.mlkit:image-labeling:17.0.9")
     implementation("androidx.compose.material:material-icons-extended")
-}
+        // Google AI SDK untuk Gemini API
+        implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
+    }

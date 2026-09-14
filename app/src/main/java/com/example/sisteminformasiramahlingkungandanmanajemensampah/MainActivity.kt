@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -25,15 +26,15 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
+            val context = LocalContext.current
+            val themePreferences = remember { ThemePreferences(context) }
 
-            SistemInformasiRamahLingkunganDanManajemenSampahTheme {
+            SistemInformasiRamahLingkunganDanManajemenSampahTheme(
+                darkTheme = themePreferences.isDarkMode
+            ) {
 
                 val navController = rememberNavController()
-
                 val authViewModel: AuthViewModel = viewModel()
-
-                val context = LocalContext.current
-
                 val sampahViewModel: SampahViewModel = viewModel(
                     factory = SampahViewModelFactory(context)
                 )
@@ -47,7 +48,6 @@ class MainActivity : ComponentActivity() {
                     // HOME
                     // =========================
                     composable("home") {
-
                         HomeScreen(
                             modifier = Modifier.fillMaxSize(),
                             onStartClick = {
@@ -57,23 +57,32 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // =========================
-                    // LOGIN
+                    // LOGIN (MULTI-LEVEL ADMIN)
                     // =========================
                     composable("login") {
-
                         LoginScreen(
                             authViewModel = authViewModel,
-
                             onRegisterClick = {
                                 authViewModel.resetState()
                                 navController.navigate("register")
                             },
-
                             onLoginSuccess = {
-
-                                navController.navigate("dashboard") {
-                                    popUpTo("login") {
-                                        inclusive = true
+                                authViewModel.fetchUserRole { role ->
+                                    when (role.lowercase()) {
+                                        "admin", "super_admin" -> {
+                                            navController.navigate("admin_dashboard") {
+                                                popUpTo("login") {
+                                                    inclusive = true
+                                                }
+                                            }
+                                        }
+                                        else -> {
+                                            navController.navigate("dashboard") {
+                                                popUpTo("login") {
+                                                    inclusive = true
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -84,7 +93,6 @@ class MainActivity : ComponentActivity() {
                     // REGISTER
                     // =========================
                     composable("register") {
-
                         RegisterScreen(
                             authViewModel = authViewModel,
                             onRegisterSuccess = {
@@ -94,39 +102,73 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // =========================
-                    // DASHBOARD
+                    // TARIK SALDO NASABAH
+                    // =========================
+                    composable("tarik_saldo") {
+                        val totalNilai by sampahViewModel.totalNilai.collectAsState(initial = 0.0)
+
+                        TarikSaldoScreen(
+                            saldoTersedia = totalNilai,
+                            onAjukanTarikClick = { metode, nomor, nama, nominal ->
+                                sampahViewModel.ajukanPenarikanSaldo(
+                                    metode = metode,
+                                    nomorTujuan = nomor,
+                                    namaPemilik = nama,
+                                    nominal = nominal
+                                )
+                                navController.popBackStack()
+                            },
+                            onBackClick = {
+                                navController.popBackStack()
+                            }
+                        )
+                    }
+
+                    // =========================
+                    // DASHBOARD NASABAH
                     // =========================
                     composable("dashboard") {
-
                         DashboardScreen(
                             viewModel = sampahViewModel,
-
                             onCatatSampahClick = {
                                 navController.navigate("catat_sampah")
                             },
-
-                            onAiScannerClick = {
-                                navController.navigate("ai_scanner")
+                            onAiChatbotClick = {
+                                navController.navigate("ai_chatbot")
                             },
-
+                            onJemputSampahClick = {
+                                navController.navigate("jemput_sampah")
+                            },
                             onStatistikClick = {
                                 navController.navigate("statistik")
                             },
-
                             onRiwayatClick = {
                                 navController.navigate("riwayat_sampah")
                             },
+                            onTarikSaldoClick = {
+                                navController.navigate("tarik_saldo")
+                            },
+                            onProfileClick = {
+                                navController.navigate("profile")
+                            }
+                        )
+                    }
 
+                    // =========================
+                    // DASHBOARD ADMIN
+                    // =========================
+                    composable("admin_dashboard") {
+                        AdminDashboardScreen(
+                            viewModel = sampahViewModel,
+                            onPriceManagerClick = {
+                                navController.navigate("admin_price_manager")
+                            },
                             onLogoutClick = {
-
                                 authViewModel.logout()
-
                                 navController.navigate("login") {
-
-                                    popUpTo("home") {
-                                        inclusive = false
+                                    popUpTo("admin_dashboard") {
+                                        inclusive = true
                                     }
-
                                     launchSingleTop = true
                                 }
                             }
@@ -134,21 +176,56 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // =========================
-                    // AI SCANNER
+                    // ADMIN PRICE MANAGER
                     // =========================
-                    composable("ai_scanner") {
-
-                        AiScannerScreen(
-
+                    composable("admin_price_manager") {
+                        AdminPriceScreen(
+                            viewModel = sampahViewModel,
                             onBackClick = {
                                 navController.popBackStack()
-                            },
+                            }
+                        )
+                    }
 
-                            onGunakanHasil = { kategori ->
-
-                                navController.navigate(
-                                    "catat_sampah/$kategori"
+                    // =========================
+                    // FITUR PENJEMPUTAN SAMPAH
+                    // =========================
+                    composable("jemput_sampah") {
+                        JemputSampahScreen(
+                            onAjukanClick = { jenis, berat, alamat, hp, catatan ->
+                                sampahViewModel.ajukanPenjemputan(
+                                    jenisSampah = jenis,
+                                    estimasiBeratKg = berat,
+                                    alamatLengkap = alamat,
+                                    nomorHp = hp,
+                                    catatan = catatan
                                 )
+                                navController.navigate("riwayat_jemput") {
+                                    popUpTo("jemput_sampah") { inclusive = true }
+                                }
+                            },
+                            onBackClick = {
+                                navController.popBackStack()
+                            }
+                        )
+                    }
+
+                    composable("riwayat_jemput") {
+                        RiwayatJemputScreen(
+                            viewModel = sampahViewModel,
+                            onTambahJemputClick = {
+                                navController.navigate("jemput_sampah")
+                            }
+                        )
+                    }
+
+                    // =========================
+                    // AI CHATBOT ASSISTANT
+                    // =========================
+                    composable("ai_chatbot") {
+                        AiChatbotScreen(
+                            onBackClick = {
+                                navController.popBackStack()
                             }
                         )
                     }
@@ -157,7 +234,6 @@ class MainActivity : ComponentActivity() {
                     // STATISTIK
                     // =========================
                     composable("statistik") {
-
                         StatistikScreen(
                             viewModel = sampahViewModel
                         )
@@ -167,10 +243,8 @@ class MainActivity : ComponentActivity() {
                     // CATAT SAMPAH BIASA
                     // =========================
                     composable("catat_sampah") {
-
                         CatatSampahScreen(
                             viewModel = sampahViewModel,
-
                             onSimpanClick = {
                                 navController.popBackStack()
                             }
@@ -178,7 +252,7 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // =========================
-                    // CATAT SAMPAH DARI AI
+                    // CATAT SAMPAH DENGAN PARAMETER
                     // =========================
                     composable(
                         route = "catat_sampah/{jenisSampah}",
@@ -188,17 +262,11 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     ) { backStackEntry ->
-
-                        val jenisSampah =
-                            backStackEntry.arguments
-                                ?.getString("jenisSampah")
-                                ?: ""
+                        val jenisSampah = backStackEntry.arguments?.getString("jenisSampah") ?: ""
 
                         CatatSampahScreen(
                             viewModel = sampahViewModel,
-
                             jenisAwal = jenisSampah,
-
                             onSimpanClick = {
                                 navController.popBackStack()
                             }
@@ -209,15 +277,10 @@ class MainActivity : ComponentActivity() {
                     // RIWAYAT SAMPAH
                     // =========================
                     composable("riwayat_sampah") {
-
                         RiwayatSampahScreen(
                             viewModel = sampahViewModel,
-
                             onEditClick = { sampah ->
-
-                                navController.navigate(
-                                    "edit_sampah/${sampah.id}"
-                                )
+                                navController.navigate("edit_sampah/${sampah.id}")
                             }
                         )
                     }
@@ -233,32 +296,34 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     ) { backStackEntry ->
+                        val sampahId = backStackEntry.arguments?.getInt("sampahId") ?: return@composable
 
-                        val sampahId =
-                            backStackEntry.arguments
-                                ?.getInt("sampahId")
-                                ?: return@composable
-
-                        val semuaSampah by
-                        sampahViewModel.semuaSampah.collectAsState(
-                            initial = emptyList()
-                        )
-
-                        val sampah =
-                            semuaSampah.find {
-                                it.id == sampahId
-                            } ?: return@composable
+                        val semuaSampah by sampahViewModel.semuaSampah.collectAsState(initial = emptyList())
+                        val sampah = semuaSampah.find { it.id == sampahId } ?: return@composable
 
                         EditSampahScreen(
                             sampah = sampah,
-
                             onSimpanClick = { sampahBaru ->
-
-                                sampahViewModel.updateSampah(
-                                    sampahBaru
-                                )
-
+                                sampahViewModel.updateSampah(sampahBaru)
                                 navController.popBackStack()
+                            }
+                        )
+                    }
+
+                    // =========================
+                    // PROFIL & PENGATURAN TEMA
+                    // =========================
+                    composable("profile") {
+                        ProfileScreen(
+                            themePreferences = themePreferences,
+                            onLogoutClick = {
+                                authViewModel.logout()
+                                navController.navigate("login") {
+                                    popUpTo("home") {
+                                        inclusive = false
+                                    }
+                                    launchSingleTop = true
+                                }
                             }
                         )
                     }

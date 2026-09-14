@@ -65,13 +65,11 @@ private val DarkColorScheme = darkColorScheme(
 
 @Composable
 fun SistemInformasiRamahLingkunganDanManajemenSampahTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-
-    // Nonaktifkan dynamic color agar identitas warna SIRAM konsisten
+    darkTheme: Boolean = isSystemInDarkTheme(), // Bisa diset secara dinamis dari MainActivity
     dynamicColor: Boolean = false,
-
     content: @Composable () -> Unit
 ) {
+    // ... sisa kode di bawahnya tetap sama
 
     val colorScheme = when {
 

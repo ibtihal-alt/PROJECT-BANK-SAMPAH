@@ -3,6 +3,7 @@ package com.example.sisteminformasiramahlingkungandanmanajemensampah.data
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
@@ -10,7 +11,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface SampahDao {
 
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(sampah: Sampah): Long
 
     @Update
@@ -34,12 +35,12 @@ interface SampahDao {
 
 
     // =========================
-    // TOTAL BERAT PER USER
+    // TOTAL BERAT PER USER (HANYA YANG DISETUJUI ADMIN)
     // =========================
     @Query("""
         SELECT COALESCE(SUM(berat), 0)
         FROM sampah
-        WHERE userId = :userId
+        WHERE userId = :userId AND status = 'DISETUJUI'
     """)
     fun getTotalBerat(
         userId: String
@@ -47,12 +48,12 @@ interface SampahDao {
 
 
     // =========================
-    // TOTAL NILAI PER USER
+    // TOTAL NILAI PER USER (HANYA YANG DISETUJUI ADMIN)
     // =========================
     @Query("""
         SELECT COALESCE(SUM(totalNilai), 0)
         FROM sampah
-        WHERE userId = :userId
+        WHERE userId = :userId AND status = 'DISETUJUI'
     """)
     fun getTotalNilai(
         userId: String
@@ -113,5 +114,28 @@ interface SampahDao {
     suspend fun updateFirebaseId(
         id: Int,
         firebaseId: String
+    )
+
+
+    // ==========================================
+    // KHUSUS ADMIN: VALIDASI CATAT SAMPAH MANDIRI
+    // ==========================================
+
+    // Mengambil SELURUH pencatatan sampah mandiri dari semua nasabah
+    @Query("""
+        SELECT * FROM sampah
+        ORDER BY tanggal DESC
+    """)
+    fun getAllSampahForAdmin(): Flow<List<Sampah>>
+
+    // Mengubah status validasi catat sampah oleh Admin (DISETUJUI / DITOLAK)
+    @Query("""
+        UPDATE sampah
+        SET status = :statusBaru
+        WHERE id = :sampahId
+    """)
+    suspend fun updateStatusSampahAdmin(
+        sampahId: Int,
+        statusBaru: String
     )
 }

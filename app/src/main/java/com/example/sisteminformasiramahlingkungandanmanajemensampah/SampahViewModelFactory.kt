@@ -10,21 +10,16 @@ class SampahViewModelFactory(
 ) : ViewModelProvider.Factory {
 
     @Suppress("UNCHECKED_CAST")
-    override fun <T : ViewModel> create(
-        modelClass: Class<T>
-    ): T {
-
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SampahViewModel::class.java)) {
-
             val database = AppDatabase.getDatabase(context)
-
             return SampahViewModel(
-                database.sampahDao()
+                sampahDao = database.sampahDao(),
+                pickupDao = database.pickupDao(),
+                penarikanDao = database.penarikanDao(),
+                hargaSampahDao = database.hargaSampahDao() // <- Tambahkan parameter ini
             ) as T
         }
-
-        throw IllegalArgumentException(
-            "Unknown ViewModel class"
-        )
+        throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
 }

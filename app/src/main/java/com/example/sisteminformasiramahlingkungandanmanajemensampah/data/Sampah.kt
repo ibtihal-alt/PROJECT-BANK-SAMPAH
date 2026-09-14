@@ -26,5 +26,8 @@ data class Sampah(
 
     val catatan: String,
 
-    val tanggal: Long = System.currentTimeMillis()
+    val tanggal: Long = System.currentTimeMillis(),
+
+    // Field Baru untuk Validasi Admin (MENUNGGU, DISETUJUI, DITOLAK)
+    val status: String = "MENUNGGU"
 )

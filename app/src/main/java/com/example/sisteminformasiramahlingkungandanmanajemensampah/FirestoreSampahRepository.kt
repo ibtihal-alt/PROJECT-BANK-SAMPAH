@@ -9,14 +9,12 @@ import kotlinx.coroutines.tasks.await
 class FirestoreSampahRepository {
 
     private val firestore = FirebaseFirestore.getInstance()
-
     private val auth = FirebaseAuth.getInstance()
 
     // =========================
     // AMBIL UID PENGGUNA
     // =========================
     private fun getUserId(): String {
-
         return auth.currentUser?.uid
             ?: throw Exception("Pengguna belum login")
     }
@@ -35,12 +33,12 @@ class FirestoreSampahRepository {
     // SIMPAN DATA
     // =========================
     suspend fun simpanSampah(sampah: Sampah): String {
-
         try {
-
             val dataSampah = hashMapOf(
                 "jenisSampah" to sampah.jenisSampah,
                 "berat" to sampah.berat,
+                "hargaPerKg" to sampah.hargaPerKg,   // DITAMBAHKAN
+                "totalNilai" to sampah.totalNilai,   // DITAMBAHKAN
                 "catatan" to sampah.catatan,
                 "tanggal" to sampah.tanggal
             )
@@ -58,13 +56,11 @@ class FirestoreSampahRepository {
             return documentReference.id
 
         } catch (e: Exception) {
-
             Log.e(
                 "FIREBASE_SIRAM",
                 "Gagal menyimpan data",
                 e
             )
-
             throw e
         }
     }
@@ -73,9 +69,7 @@ class FirestoreSampahRepository {
     // UPDATE DATA
     // =========================
     suspend fun updateSampah(sampah: Sampah) {
-
         try {
-
             if (sampah.firebaseId.isBlank()) {
                 throw Exception(
                     "Firebase ID tidak ditemukan"
@@ -85,6 +79,8 @@ class FirestoreSampahRepository {
             val dataSampah = hashMapOf(
                 "jenisSampah" to sampah.jenisSampah,
                 "berat" to sampah.berat,
+                "hargaPerKg" to sampah.hargaPerKg,   // DITAMBAHKAN
+                "totalNilai" to sampah.totalNilai,   // DITAMBAHKAN
                 "catatan" to sampah.catatan,
                 "tanggal" to sampah.tanggal
             )
@@ -100,13 +96,11 @@ class FirestoreSampahRepository {
             )
 
         } catch (e: Exception) {
-
             Log.e(
                 "FIREBASE_SIRAM",
                 "Gagal update Firebase",
                 e
             )
-
             throw e
         }
     }
@@ -115,11 +109,8 @@ class FirestoreSampahRepository {
     // HAPUS DATA
     // =========================
     suspend fun hapusSampah(sampah: Sampah) {
-
         try {
-
             if (sampah.firebaseId.isNotBlank()) {
-
                 sampahCollection()
                     .document(sampah.firebaseId)
                     .delete()
@@ -132,13 +123,11 @@ class FirestoreSampahRepository {
             }
 
         } catch (e: Exception) {
-
             Log.e(
                 "FIREBASE_SIRAM",
                 "Gagal menghapus data dari Firebase",
                 e
             )
-
             throw e
         }
     }

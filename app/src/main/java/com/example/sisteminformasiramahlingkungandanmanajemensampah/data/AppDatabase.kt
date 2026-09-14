@@ -8,13 +8,21 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [Sampah::class],
-    version = 4,
+    entities = [
+        Sampah::class,
+        PickupTransaction::class,
+        PenarikanSaldo::class,
+        HargaSampah::class // <- WAJIB: Daftarkan entitas ini agar tabel SQLite dibuat
+    ],
+    version = 8, // Naikkan versi database dari 7 ke 8
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun sampahDao(): SampahDao
+    abstract fun pickupDao(): PickupDao
+    abstract fun penarikanDao(): PenarikanDao
+    abstract fun hargaSampahDao(): HargaSampahDao
 
     companion object {
 
@@ -23,9 +31,7 @@ abstract class AppDatabase : RoomDatabase() {
 
         // Migration database versi 3 → 4
         private val MIGRATION_3_4 = object : Migration(3, 4) {
-
             override fun migrate(database: SupportSQLiteDatabase) {
-
                 database.execSQL(
                     """
                     ALTER TABLE sampah
@@ -42,6 +48,31 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Migration database versi 5 → 6 (Perbaikan nama tabel & kolom baru)
+        private val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `pickup_transactions` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `firebaseId` TEXT NOT NULL DEFAULT '',
+                        `userId` TEXT NOT NULL DEFAULT '',
+                        `jenisSampah` TEXT NOT NULL DEFAULT '',
+                        `estimasiBeratKg` REAL NOT NULL DEFAULT 0.0,
+                        `beratAktualKg` REAL NOT NULL DEFAULT 0.0,
+                        `hargaPerKgAktual` REAL NOT NULL DEFAULT 0.0,
+                        `totalNominalRp` REAL NOT NULL DEFAULT 0.0,
+                        `alamatLengkap` TEXT NOT NULL DEFAULT '',
+                        `nomorHp` TEXT NOT NULL DEFAULT '',
+                        `tanggalJemput` INTEGER NOT NULL DEFAULT 0,
+                        `catatan` TEXT NOT NULL DEFAULT '',
+                        `status` TEXT NOT NULL DEFAULT 'MENUNGGU'
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
 
             return INSTANCE ?: synchronized(this) {
@@ -51,7 +82,8 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "siram_database"
                 )
-                    .addMigrations(MIGRATION_3_4)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_5_6)
+                    .fallbackToDestructiveMigration() // Reset otomatis database lokal karena ada penambahan tabel baru
                     .build()
 
                 INSTANCE = instance

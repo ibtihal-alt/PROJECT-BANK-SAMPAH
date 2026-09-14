@@ -1,438 +1,399 @@
 package com.example.sisteminformasiramahlingkungandanmanajemensampah
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.material.icons.filled.Assignment
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MonetizationOn
+import androidx.compose.material.icons.filled.Recycling
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.text.NumberFormat
+import java.util.Locale
+
+// PALET WARNA KOMERSIAL (LIGHT THEME)
+private val PrimaryGreen = Color(0xFF006C4C)
+private val PrimaryGradient = Color(0xFF00A86B)
+private val BackgroundLight = Color(0xFFF8FAFC)
+private val CardBackground = Color(0xFFFFFFFF)
 
 @Composable
 fun StatistikScreen(
     viewModel: SampahViewModel
 ) {
+    val totalBerat by viewModel.totalBerat.collectAsState(initial = 0.0)
+    val totalNilai by viewModel.totalNilai.collectAsState(initial = 0.0)
+    val jumlahSampah by viewModel.jumlahSampah.collectAsState(initial = 0)
+    val jenisTerbanyak by viewModel.jenisTerbanyak.collectAsState(initial = null)
 
-    val totalBerat by viewModel.totalBerat.collectAsState(
-        initial = 0.0
-    )
+    val currencyFormat = remember { NumberFormat.getCurrencyInstance(Locale("id", "ID")) }
+    val scrollState = rememberScrollState()
 
-    val jumlahSampah by viewModel.jumlahSampah.collectAsState(
-        initial = 0
-    )
-
-    val jenisTerbanyak by viewModel.jenisTerbanyak.collectAsState(
-        initial = null
-    )
-
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(
-                horizontal = 20.dp,
-                vertical = 24.dp
-            )
+            .background(BackgroundLight)
     ) {
-
-        // =====================================
-        // HEADER
-        // =====================================
-
-        Text(
-            text = "Statistik Sampah",
-            style = MaterialTheme.typography.headlineMedium,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(
-            modifier = Modifier.height(6.dp)
-        )
-
-        Text(
-            text =
-                "Pantau ringkasan aktivitas dan data sampah yang telah Anda kelola.",
-            style =
-                MaterialTheme.typography.bodyMedium,
-            color =
-                MaterialTheme.colorScheme
-                    .onSurfaceVariant
-        )
-
-        Spacer(
-            modifier = Modifier.height(24.dp)
-        )
-
-        // =====================================
-        // TOTAL SAMPAH
-        // =====================================
-
-        SiramCard(
-            modifier = Modifier.fillMaxWidth()
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
         ) {
+            // HEADER BANNER GRADIENT ELEGAN
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
+                    .background(
+                        brush = Brush.horizontalGradient(
+                            colors = listOf(PrimaryGreen, PrimaryGradient)
+                        )
+                    )
+                    .padding(horizontal = 20.dp, vertical = 20.dp)
+            ) {
+                Column {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Analytics,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Statistik Pengelolaan",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Ringkasan performa daur ulang dan akumulasi nilai saldo Anda.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.White.copy(alpha = 0.85f)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             Column(
-                modifier =
-                    Modifier.fillMaxWidth(),
-                horizontalAlignment =
-                    Alignment.CenterHorizontally
+                modifier = Modifier.padding(horizontal = 20.dp)
             ) {
+                // HERO CARD: TOTAL SAMPAH TERVERIFIKASI
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = CardBackground),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Surface(
+                            color = PrimaryGreen.copy(alpha = 0.1f),
+                            shape = RoundedCornerShape(50.dp)
+                        ) {
+                            Text(
+                                text = "TOTAL DAUR ULANG TERVERIFIKASI",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PrimaryGreen,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                            )
+                        }
 
-                Text(
-                    text = "TOTAL SAMPAH DIKELOLA",
-                    style =
-                        MaterialTheme.typography
-                            .labelMedium,
-                    fontWeight =
-                        FontWeight.Bold,
-                    color =
-                        MaterialTheme.colorScheme
-                            .primary
-                )
+                        Spacer(modifier = Modifier.height(14.dp))
 
-                Spacer(
-                    modifier =
-                        Modifier.height(12.dp)
-                )
+                        Row(
+                            verticalAlignment = Alignment.Bottom,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Text(
+                                text = String.format("%.1f", totalBerat),
+                                fontSize = 44.sp,
+                                fontWeight = FontWeight.Black,
+                                color = PrimaryGreen
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Kg",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF64748B),
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                        }
 
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(
+                            text = "Akumulasi berat seluruh sampah yang berhasil disetujui Admin.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color(0xFF64748B),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // GRID METRIK: JUMLAH CATATAN & JENIS TERBANYAK
                 Row(
-                    verticalAlignment =
-                        Alignment.Bottom
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-
-                    Text(
-                        text =
-                            String.format(
-                                "%.1f",
-                                totalBerat
-                            ),
-                        fontSize = 42.sp,
-                        fontWeight =
-                            FontWeight.Bold,
-                        color =
-                            MaterialTheme.colorScheme
-                                .primary
+                    // JUMLAH CATATAN
+                    CommercialStatMetricCard(
+                        modifier = Modifier.weight(1f),
+                        title = "Total Aktivitas",
+                        value = "$jumlahSampah",
+                        unit = "Transaksi",
+                        icon = Icons.Default.Assignment,
+                        iconColor = Color(0xFF0284C7)
                     )
 
-                    Spacer(
-                        modifier =
-                            Modifier.width(6.dp)
-                    )
-
-                    Text(
-                        text = "Kg",
-                        fontSize = 20.sp,
-                        modifier =
-                            Modifier.padding(
-                                bottom = 8.dp
-                            ),
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
+                    // JENIS SAMPAH TERBANYAK
+                    CommercialStatMetricCard(
+                        modifier = Modifier.weight(1f),
+                        title = "Kategori Dominan",
+                        value = jenisTerbanyak ?: "-",
+                        unit = if (jenisTerbanyak == null) "Belum ada" else "Paling banyak",
+                        icon = Icons.Default.Category,
+                        iconColor = Color(0xFF8B5CF6)
                     )
                 }
 
-                Spacer(
-                    modifier =
-                        Modifier.height(8.dp)
-                )
+                Spacer(modifier = Modifier.height(14.dp))
 
+                // KARTU METRIK SALDO
+                Card(
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = CardBackground),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .clip(CircleShape)
+                                    .background(PrimaryGreen.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.MonetizationOn,
+                                    contentDescription = null,
+                                    tint = PrimaryGreen,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                            Column {
+                                Text(
+                                    text = "Total Estimasi Saldo",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF64748B)
+                                )
+                                Text(
+                                    text = currencyFormat.format(totalNilai),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = PrimaryGreen
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+
+                // RINGKASAN DETAIL
                 Text(
-                    text =
-                        "Akumulasi seluruh berat sampah yang telah dicatat.",
-                    style =
-                        MaterialTheme.typography
-                            .bodySmall,
-                    color =
-                        MaterialTheme.colorScheme
-                            .onSurfaceVariant
-                )
-            }
-        }
-
-        Spacer(
-            modifier = Modifier.height(16.dp)
-        )
-
-        // =====================================
-        // JUMLAH CATATAN DAN JENIS TERBANYAK
-        // =====================================
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement =
-                Arrangement.spacedBy(12.dp)
-        ) {
-
-            // JUMLAH CATATAN
-
-            SiramCard(
-                modifier =
-                    Modifier.weight(1f)
-            ) {
-
-                Column {
-
-                    Text(
-                        text = "Jumlah Catatan",
-                        style =
-                            MaterialTheme.typography
-                                .bodySmall,
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
-                    )
-
-                    Spacer(
-                        modifier =
-                            Modifier.height(10.dp)
-                    )
-
-                    Text(
-                        text =
-                            jumlahSampah.toString(),
-                        fontSize = 32.sp,
-                        fontWeight =
-                            FontWeight.Bold,
-                        color =
-                            MaterialTheme.colorScheme
-                                .primary
-                    )
-
-                    Text(
-                        text = "Data tersimpan",
-                        style =
-                            MaterialTheme.typography
-                                .bodySmall,
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
-                    )
-                }
-            }
-
-            // JENIS SAMPAH TERBANYAK
-
-            SiramCard(
-                modifier =
-                    Modifier.weight(1f)
-            ) {
-
-                Column {
-
-                    Text(
-                        text = "Jenis Terbanyak",
-                        style =
-                            MaterialTheme.typography
-                                .bodySmall,
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
-                    )
-
-                    Spacer(
-                        modifier =
-                            Modifier.height(10.dp)
-                    )
-
-                    Text(
-                        text =
-                            jenisTerbanyak
-                                ?: "-",
-                        style =
-                            MaterialTheme.typography
-                                .titleMedium,
-                        fontWeight =
-                            FontWeight.Bold,
-                        maxLines = 2,
-                        color =
-                            MaterialTheme.colorScheme
-                                .primary
-                    )
-
-                    Spacer(
-                        modifier =
-                            Modifier.height(4.dp)
-                    )
-
-                    Text(
-                        text =
-                            if (jenisTerbanyak == null) {
-                                "Belum ada data"
-                            } else {
-                                "Berdasarkan total berat"
-                            },
-                        style =
-                            MaterialTheme.typography
-                                .bodySmall,
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
-                    )
-                }
-            }
-        }
-
-        Spacer(
-            modifier =
-                Modifier.height(28.dp)
-        )
-
-        // =====================================
-        // RINGKASAN
-        // =====================================
-
-        Text(
-            text = "Ringkasan",
-            style =
-                MaterialTheme.typography
-                    .titleLarge,
-            fontWeight =
-                FontWeight.Bold
-        )
-
-        Spacer(
-            modifier =
-                Modifier.height(12.dp)
-        )
-
-        SiramCard(
-            modifier =
-                Modifier.fillMaxWidth()
-        ) {
-
-            Column {
-
-                StatistikRingkasanItem(
-                    title = "Total berat sampah",
-                    value =
-                        "${String.format("%.1f", totalBerat)} Kg"
+                    text = "Ringkasan Performa",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF0F172A)
                 )
 
-                Spacer(
-                    modifier =
-                        Modifier.height(16.dp)
-                )
+                Spacer(modifier = Modifier.height(10.dp))
 
-                StatistikRingkasanItem(
-                    title = "Jumlah aktivitas tercatat",
-                    value =
-                        "$jumlahSampah aktivitas"
-                )
-
-                Spacer(
-                    modifier =
-                        Modifier.height(16.dp)
-                )
-
-                StatistikRingkasanItem(
-                    title = "Kategori sampah dominan",
-                    value =
-                        jenisTerbanyak
-                            ?: "Belum ada data"
-                )
-            }
-        }
-
-        Spacer(
-            modifier =
-                Modifier.height(16.dp)
-        )
-
-        // =====================================
-        // PESAN KOSONG / INFORMASI
-        // =====================================
-
-        if (jumlahSampah == 0) {
-
-            SiramCard(
-                modifier =
-                    Modifier.fillMaxWidth()
-            ) {
-
-                Column(
-                    modifier =
-                        Modifier.fillMaxWidth(),
-                    horizontalAlignment =
-                        Alignment.CenterHorizontally
+                Card(
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = CardBackground),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-
-                    Text(
-                        text = "Belum ada data statistik",
-                        fontWeight =
-                            FontWeight.Bold
-                    )
-
-                    Spacer(
-                        modifier =
-                            Modifier.height(6.dp)
-                    )
-
-                    Text(
-                        text =
-                            "Mulai catat sampah agar aplikasi dapat menampilkan statistik pengelolaan Anda.",
-                        style =
-                            MaterialTheme.typography
-                                .bodySmall,
-                        color =
-                            MaterialTheme.colorScheme
-                                .onSurfaceVariant
-                    )
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        StatistikRingkasanRow(
+                            title = "Total berat sampah",
+                            value = "${String.format("%.1f", totalBerat)} Kg"
+                        )
+                        HorizontalDivider(color = Color(0xFFF1F5F9))
+                        StatistikRingkasanRow(
+                            title = "Jumlah aktivitas tercatat",
+                            value = "$jumlahSampah Catatan"
+                        )
+                        HorizontalDivider(color = Color(0xFFF1F5F9))
+                        StatistikRingkasanRow(
+                            title = "Kategori sampah dominan",
+                            value = jenisTerbanyak ?: "Belum ada data"
+                        )
+                    }
                 }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // EMPTY STATE / INFO NOTE
+                if (jumlahSampah == 0) {
+                    Card(
+                        shape = RoundedCornerShape(14.dp),
+                        colors = CardDefaults.cardColors(containerColor = CardBackground),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = PrimaryGreen,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "Mulai catat atau ajukan penjemputan sampah agar aplikasi dapat menyusun statistik lengkap untuk Anda.",
+                                fontSize = 11.sp,
+                                color = Color(0xFF64748B)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
     }
 }
 
+@Composable
+private fun CommercialStatMetricCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    value: String,
+    unit: String,
+    icon: ImageVector,
+    iconColor: Color
+) {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    fontSize = 11.sp,
+                    color = Color(0xFF64748B),
+                    fontWeight = FontWeight.Medium
+                )
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(CircleShape)
+                        .background(iconColor.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconColor,
+                        modifier = Modifier.size(13.dp)
+                    )
+                }
+            }
 
-// =====================================
-// ITEM RINGKASAN
-// =====================================
+            Text(
+                text = value,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF0F172A),
+                maxLines = 1
+            )
+
+            Text(
+                text = unit,
+                fontSize = 10.sp,
+                color = Color(0xFF94A3B8)
+            )
+        }
+    }
+}
 
 @Composable
-private fun StatistikRingkasanItem(
+private fun StatistikRingkasanRow(
     title: String,
     value: String
 ) {
-
     Row(
-        modifier =
-            Modifier.fillMaxWidth(),
-        verticalAlignment =
-            Alignment.CenterVertically
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-
-        Column(
-            modifier =
-                Modifier.weight(1f)
-        ) {
-
-            Text(
-                text = title,
-                style =
-                    MaterialTheme.typography
-                        .bodyMedium
-            )
-        }
-
+        Text(
+            text = title,
+            fontSize = 13.sp,
+            color = Color(0xFF475569)
+        )
         Text(
             text = value,
-            fontWeight =
-                FontWeight.Bold,
-            color =
-                MaterialTheme.colorScheme
-                    .primary
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = PrimaryGreen
         )
     }
 }
