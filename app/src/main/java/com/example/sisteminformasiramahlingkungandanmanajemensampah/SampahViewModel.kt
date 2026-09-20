@@ -12,6 +12,8 @@ import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.Penarik
 import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.Sampah
 import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.SampahDao
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -30,6 +32,7 @@ class SampahViewModel(
     private val firestoreRepository = FirestoreSampahRepository()
     private val firestorePickupRepository = FirestorePickupRepository()
     private val auth = FirebaseAuth.getInstance()
+    private val firestore = FirebaseFirestore.getInstance()
 
     private fun getUserId(): String {
         return auth.currentUser?.uid ?: ""
@@ -87,10 +90,9 @@ class SampahViewModel(
             return if (userId.isNotEmpty()) {
                 combine(
                     sampahDao.getTotalNilai(userId),
-                    pickupDao.getTotalSaldoPickupByUser(userId),
                     penarikanDao.getTotalPenarikanByUser(userId)
-                ) { totalSampah, totalPickup, totalTarik ->
-                    val pendapatan = (totalSampah ?: 0.0) + (totalPickup ?: 0.0)
+                ) { totalSampah, totalTarik ->
+                    val pendapatan = totalSampah ?: 0.0
                     val potongan = totalTarik ?: 0.0
                     val hasil = pendapatan - potongan
                     if (hasil < 0.0) 0.0 else hasil
@@ -243,7 +245,7 @@ class SampahViewModel(
         viewModelScope.launch {
             try {
                 firestoreRepository.hapusSampah(sampah)
-                sampahDao.delete(sampah)
+                sampahDao.softDelete(sampah.id)
             } catch (e: Exception) {
                 Log.e("SIRAM", "Gagal menghapus data", e)
             }
@@ -258,7 +260,9 @@ class SampahViewModel(
         estimasiBeratKg: Double,
         alamatLengkap: String,
         nomorHp: String,
-        catatan: String
+        catatan: String,
+        latitude: Double = 0.0,
+        longitude: Double = 0.0
     ) {
         val userId = getUserId()
         if (userId.isBlank()) return
@@ -273,7 +277,9 @@ class SampahViewModel(
                     nomorHp = nomorHp,
                     tanggalJemput = System.currentTimeMillis(),
                     catatan = catatan,
-                    status = "MENUNGGU"
+                    status = "MENUNGGU",
+                    latitude = latitude,
+                    longitude = longitude
                 )
 
                 val idBaru = pickupDao.insert(pickup)
@@ -321,6 +327,26 @@ class SampahViewModel(
     // KHUSUS ADMIN: VALIDASI PENJEMPUTAN
     // =========================
     val semuaPenjemputanAdmin: Flow<List<PickupTransaction>> = pickupDao.getAllPickupForAdmin()
+
+    fun assignKurirPenjemputan(pickup: PickupTransaction, kurirId: String, kurirName: String) {
+        viewModelScope.launch {
+            try {
+                val updated = pickup.copy(
+                    status = "DIPROSES",
+                    assignedKurirId = kurirId,
+                    assignedKurirName = kurirName
+                )
+                pickupDao.update(updated)
+                firestorePickupRepository.updateStatusPenjemputan(
+                    userId = pickup.userId,
+                    firebaseId = pickup.firebaseId,
+                    statusBaru = "DIPROSES"
+                )
+            } catch (e: Exception) {
+                Log.e("SIRAM_ADMIN", "Gagal menetapkan kurir penjemputan", e)
+            }
+        }
+    }
 
     fun updateStatusPenjemputanByAdmin(pickup: PickupTransaction, statusBaru: String) {
         viewModelScope.launch {
@@ -374,6 +400,29 @@ class SampahViewModel(
         }
     }
 
+    fun updateStatusSampahMandiriWithDetailsByAdmin(
+        sampah: Sampah,
+        beratBaru: Double,
+        hargaBaru: Double,
+        totalBaru: Double,
+        statusBaru: String
+    ) {
+        viewModelScope.launch {
+            try {
+                val sampahUpdated = sampah.copy(
+                    berat = beratBaru,
+                    hargaPerKg = hargaBaru,
+                    totalNilai = totalBaru,
+                    status = statusBaru
+                )
+                sampahDao.update(sampahUpdated)
+                firestoreRepository.updateSampah(sampahUpdated)
+            } catch (e: Exception) {
+                Log.e("SIRAM_ADMIN", "Gagal mengupdate status & detail sampah mandiri", e)
+            }
+        }
+    }
+
     // =========================
     // KHUSUS ADMIN: VALIDASI PENARIKAN SALDO
     // =========================
@@ -385,6 +434,65 @@ class SampahViewModel(
                 penarikanDao.updateStatusPenarikanAdmin(penarikan.id, statusBaru)
             } catch (e: Exception) {
                 Log.e("SIRAM_ADMIN", "Gagal mengupdate status penarikan", e)
+            }
+        }
+    }
+
+    fun updateStatusPenarikanWithDetailsByAdmin(
+        penarikan: PenarikanSaldo,
+        nominalBaru: Double,
+        statusBaru: String
+    ) {
+        viewModelScope.launch {
+            try {
+                val penarikanUpdated = penarikan.copy(
+                    nominalRp = nominalBaru,
+                    status = statusBaru
+                )
+                penarikanDao.update(penarikanUpdated)
+            } catch (e: Exception) {
+                Log.e("SIRAM_ADMIN", "Gagal mengupdate status & nominal penarikan", e)
+            }
+        }
+    }
+
+    fun registerAdminBaru(
+        email: String,
+        password: String,
+        nama: String,
+        role: String,
+        onResult: (Boolean, String) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val authInstance = FirebaseAuth.getInstance()
+                val authResult = authInstance.createUserWithEmailAndPassword(email.trim(), password).await()
+                val uid = authResult.user?.uid ?: ""
+                if (uid.isNotEmpty()) {
+                    val userData = hashMapOf(
+                        "uid" to uid,
+                        "email" to email.trim(),
+                        "nama" to nama,
+                        "role" to role,
+                        "createdAt" to System.currentTimeMillis()
+                    )
+                    firestore.collection("users").document(uid).set(userData).await()
+                    onResult(true, "Berhasil mendaftarkan $role ($nama)!")
+                } else {
+                    onResult(false, "Gagal membuat akun")
+                }
+            } catch (e: Exception) {
+                onResult(false, e.message ?: "Terjadi kesalahan")
+            }
+        }
+    }
+
+    fun hapusHargaSampah(jenis: String) {
+        viewModelScope.launch {
+            try {
+                hargaSampahDao.deleteHargaByJenis(jenis)
+            } catch (e: Exception) {
+                Log.e("SIRAM", "Gagal menghapus harga sampah", e)
             }
         }
     }

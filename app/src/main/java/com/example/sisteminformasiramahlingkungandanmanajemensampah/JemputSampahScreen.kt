@@ -1,5 +1,11 @@
 package com.example.sisteminformasiramahlingkungandanmanajemensampah
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.location.Geocoder
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -16,6 +22,9 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.Map
+import androidx.compose.material.icons.filled.MyLocation
+import androidx.compose.material.icons.filled.PinDrop
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,10 +33,20 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.*
+import com.google.android.gms.tasks.CancellationTokenSource
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.*
+import java.util.Locale
 
 // PALET WARNA KOMERSIAL (LIGHT THEME)
 private val PrimaryGreen = Color(0xFF006C4C)
@@ -41,18 +60,68 @@ private val OrangePendingBg = Color(0xFFFEF3C7)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun JemputSampahScreen(
-    onAjukanClick: (jenis: String, berat: Double, alamat: String, hp: String, catatan: String) -> Unit,
+    viewModel: SampahViewModel,
+    onAjukanClick: (jenis: String, berat: Double, alamat: String, hp: String, catatan: String, lat: Double, lng: Double) -> Unit,
     onBackClick: () -> Unit = {}
 ) {
+    val context = LocalContext.current
+    val userPrefs = remember { UserPreferences(context) }
+
     var jenisSampah by remember { mutableStateOf("") }
     var estimasiBerat by remember { mutableStateOf("") }
-    var alamat by remember { mutableStateOf("") }
-    var nomorHp by remember { mutableStateOf("") }
+    var alamat by remember { mutableStateOf(userPrefs.alamatDefault) }
+    var nomorHp by remember { mutableStateOf(userPrefs.nomorHp) }
     var catatan by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
 
+    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
+    var pickupLat by remember { mutableStateOf(0.0) }
+    var pickupLng by remember { mutableStateOf(0.0) }
+    var showMapPicker by remember { mutableStateOf(false) }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        ) {
+            try {
+                fusedLocationClient.getCurrentLocation(
+                    Priority.PRIORITY_HIGH_ACCURACY,
+                    CancellationTokenSource().token
+                ).addOnSuccessListener { loc ->
+                    if (loc != null) {
+                        pickupLat = loc.latitude
+                        pickupLng = loc.longitude
+                        var addressText = ""
+                        try {
+                            val geocoder = Geocoder(context, Locale("id", "ID"))
+                            val addresses = geocoder.getFromLocation(loc.latitude, loc.longitude, 1)
+                            if (!addresses.isNullOrEmpty()) {
+                                addressText = addresses[0].getAddressLine(0) ?: ""
+                            }
+                        } catch (e: Exception) {
+                            // ignore
+                        }
+                        if (addressText.isNotBlank()) {
+                            alamat = addressText
+                        }
+                        Toast.makeText(context, "📍 GPS Ditemukan!", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            } catch (e: SecurityException) {
+                // ignore
+            }
+        }
+    }
+
     val scrollState = rememberScrollState()
-    val rekomendasiKategori = listOf("Plastik", "Kardus", "Kertas", "Kaleng", "Campuran")
+    val daftarHarga by viewModel.semuaHargaSampah.collectAsState(initial = emptyList())
+    val rekomendasiKategori = if (daftarHarga.isNotEmpty()) {
+        daftarHarga.map { it.jenisSampah }
+    } else {
+        listOf("Plastik", "Kardus", "Kertas", "Kaleng", "Campuran")
+    }
 
     Scaffold(
         topBar = {
@@ -225,6 +294,79 @@ fun JemputSampahScreen(
                                 modifier = Modifier.fillMaxWidth()
                             )
 
+                            // PENENTUAN TITIK LOKASI JEMPUT (SHOPEE STYLE)
+                            Text("Titik Penjemputan Peta / GPS:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0F172A))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        val hasPermission = ContextCompat.checkSelfPermission(
+                                            context,
+                                            Manifest.permission.ACCESS_FINE_LOCATION
+                                        ) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
+                                            context,
+                                            Manifest.permission.ACCESS_COARSE_LOCATION
+                                        ) == PackageManager.PERMISSION_GRANTED
+
+                                        if (hasPermission) {
+                                            try {
+                                                fusedLocationClient.getCurrentLocation(
+                                                    Priority.PRIORITY_HIGH_ACCURACY,
+                                                    CancellationTokenSource().token
+                                                ).addOnSuccessListener { loc ->
+                                                    if (loc != null) {
+                                                        pickupLat = loc.latitude
+                                                        pickupLng = loc.longitude
+                                                        var addressText = ""
+                                                        try {
+                                                            val geocoder = Geocoder(context, Locale("id", "ID"))
+                                                            val addresses = geocoder.getFromLocation(loc.latitude, loc.longitude, 1)
+                                                            if (!addresses.isNullOrEmpty()) {
+                                                                addressText = addresses[0].getAddressLine(0) ?: ""
+                                                            }
+                                                        } catch (e: Exception) {
+                                                            // ignore
+                                                        }
+                                                        if (addressText.isNotBlank()) {
+                                                            alamat = addressText
+                                                        }
+                                                        Toast.makeText(context, "📍 GPS Ditemukan!", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                }
+                                            } catch (e: SecurityException) {
+                                                // ignore
+                                            }
+                                        } else {
+                                            locationPermissionLauncher.launch(
+                                                arrayOf(
+                                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                                )
+                                            )
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
+                                ) {
+                                    Icon(Icons.Default.MyLocation, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("GPS Saya", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                OutlinedButton(
+                                    onClick = { showMapPicker = true },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Icon(Icons.Default.Map, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text("Pilih di Peta", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+
                             // ALAMAT LENGKAP
                             OutlinedTextField(
                                 value = alamat,
@@ -308,7 +450,9 @@ fun JemputSampahScreen(
                                                 estimasiBerat.toDouble(),
                                                 alamat.trim(),
                                                 nomorHp.trim(),
-                                                catatan.trim()
+                                                catatan.trim(),
+                                                pickupLat,
+                                                pickupLng
                                             )
                                         }
                                     }
@@ -365,6 +509,155 @@ fun JemputSampahScreen(
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
+                }
+            }
+        }
+    }
+
+    if (showMapPicker) {
+        MapPickerModal(
+            initialLat = pickupLat,
+            initialLng = pickupLng,
+            onConfirmLocation = { lat, lng, address ->
+                pickupLat = lat
+                pickupLng = lng
+                if (address.isNotBlank()) {
+                    alamat = address
+                }
+                showMapPicker = false
+            },
+            onDismiss = { showMapPicker = false }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MapPickerModal(
+    initialLat: Double,
+    initialLng: Double,
+    onConfirmLocation: (lat: Double, lng: Double, address: String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val startLat = if (initialLat != 0.0) initialLat else -7.4029
+    val startLng = if (initialLng != 0.0) initialLng else 111.4452
+
+    val cameraPositionState = rememberCameraPositionState {
+        position = CameraPosition.fromLatLngZoom(LatLng(startLat, startLng), 16f)
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .fillMaxHeight(0.85f)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                TopAppBar(
+                    title = { Text("Geser Peta Pilih Titik Jemput", fontSize = 16.sp, fontWeight = FontWeight.Bold) },
+                    navigationIcon = {
+                        IconButton(onClick = onDismiss) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Tutup")
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White)
+                )
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                ) {
+                    GoogleMap(
+                        modifier = Modifier.fillMaxSize(),
+                        cameraPositionState = cameraPositionState
+                    )
+
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                imageVector = Icons.Default.PinDrop,
+                                contentDescription = "Titik Terpilih",
+                                tint = Color(0xFFDC2626),
+                                modifier = Modifier.size(42.dp)
+                            )
+                            Surface(
+                                color = Color.Black.copy(alpha = 0.75f),
+                                shape = RoundedCornerShape(50.dp)
+                            ) {
+                                Text(
+                                    text = "Titik Jemput Anda",
+                                    color = Color.White,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(21.dp))
+                        }
+                    }
+                }
+
+                Surface(
+                    color = Color(0xFFF8FAFC),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        val currentTarget = cameraPositionState.position.target
+                        Text(
+                            text = "📍 Lokasi Terpilih:",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF64748B)
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = String.format("Lat: %.5f, Lng: %.5f", currentTarget.latitude, currentTarget.longitude),
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF0F172A)
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Button(
+                            onClick = {
+                                val lat = currentTarget.latitude
+                                val lng = currentTarget.longitude
+                                var addressText = ""
+                                try {
+                                    val geocoder = Geocoder(context, Locale("id", "ID"))
+                                    val addresses = geocoder.getFromLocation(lat, lng, 1)
+                                    if (!addresses.isNullOrEmpty()) {
+                                        val addr = addresses[0]
+                                        addressText = addr.getAddressLine(0) ?: ""
+                                    }
+                                } catch (e: Exception) {
+                                    // ignore
+                                }
+                                if (addressText.isBlank()) {
+                                    addressText = "Titik Jemput Peta (Lat: ${String.format("%.4f", lat)}, Lng: ${String.format("%.4f", lng)})"
+                                }
+                                onConfirmLocation(lat, lng, addressText)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF006C4C))
+                        ) {
+                            Text("GUNAKAN TITIK LOKASI INI", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
+                    }
                 }
             }
         }

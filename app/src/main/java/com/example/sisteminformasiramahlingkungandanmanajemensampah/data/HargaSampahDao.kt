@@ -16,4 +16,7 @@ interface HargaSampahDao {
 
     @Query("SELECT hargaPerKg FROM tabel_harga_sampah WHERE jenisSampah = :jenis")
     suspend fun getHargaByJenis(jenis: String): Double?
+
+    @Query("DELETE FROM tabel_harga_sampah WHERE jenisSampah = :jenis")
+    suspend fun deleteHargaByJenis(jenis: String)
 }

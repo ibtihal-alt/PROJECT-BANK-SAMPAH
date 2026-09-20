@@ -28,7 +28,9 @@ class FirestorePickupRepository {
                 "tanggalJemput" to pickup.tanggalJemput,
                 "catatan" to pickup.catatan,
                 "status" to pickup.status,
-                "createdAt" to pickup.tanggalJemput // Diganti dari pickup.createdAt ke pickup.tanggalJemput
+                "latitude" to pickup.latitude,
+                "longitude" to pickup.longitude,
+                "createdAt" to pickup.tanggalJemput
             )
 
             val docRef = pickupCollection().add(data).await()

@@ -1,6 +1,5 @@
 package com.example.sisteminformasiramahlingkungandanmanajemensampah
 
-import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -9,7 +8,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.*
@@ -21,20 +20,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.google.ai.client.generativeai.GenerativeModel
-import com.google.ai.client.generativeai.type.content
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 private val PrimaryGreen = Color(0xFF006C4C)
 private val BackgroundLight = Color(0xFFF8FAFC)
 private val CardBackground = Color(0xFFFFFFFF)
 private val BotBubble = Color(0xFFE2E8F0)
 private val UserBubble = Color(0xFF006C4C)
-
-// MASUKKAN API KEY GRATIS KAMU DI SINI
-private const val GEMINI_API_KEY = "DUMMY_GEMINI_KEY_REMOVED_FOR_SECURITY_REASONS_0000000"
 
 data class ChatMessage(
     val text: String,
@@ -53,7 +46,7 @@ fun AiChatbotScreen(
     val chatMessages = remember {
         mutableStateListOf(
             ChatMessage(
-                text = "Halo! Saya SIRAM AI Assistant, asisten pintar Bank Sampah Anda. Ada yang bisa saya bantu seputar pemilahan sampah, panduan daur ulang, atau penggunaan aplikasi?",
+                text = "Halo! Saya SIRAM Smart AI Assistant (Offline Mode). Asisten cerdas Bank Sampah Anda yang siap membantu 24/7 tanpa batas kuota atau koneksi internet. Ada yang ingin Anda tanyakan seputar pemilahan sampah, panduan daur ulang, atau fitur aplikasi?",
                 isUser = false
             )
         )
@@ -62,23 +55,61 @@ fun AiChatbotScreen(
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
 
-    val generativeModel = remember {
-        GenerativeModel(
-            modelName = "gemini-1.5-flash",
-            apiKey = GEMINI_API_KEY,
-            systemInstruction = content {
-                text(
-                    """
-                    Kamu adalah SIRAM AI Assistant, asisten virtual ramah untuk aplikasi bank sampah SIRAM.
-                    Tugasmu adalah menjawab pertanyaan pengguna seputar:
-                    1. Pemilahan sampah (Plastik, Kertas, Logam, Kaca, Organik, B3).
-                    2. Fitur aplikasi SIRAM (Catat Sampah, Jemput Sampah ke Rumah, Tarik Saldo/Pencairan).
-                    3. Edukasi lingkungan dan daur ulang.
-                    Jawablah menggunakan Bahasa Indonesia yang ramah, sopan, ringkas, dan mudah dipahami.
-                    """.trimIndent()
-                )
+    // DATASET LENGKAP PENGETAHUAN LOKAL (TANPA API)
+    val knowledgeBase = listOf(
+        // Kategori Plastik
+        listOf("plastik", "botol", "gelas", "kresek", "ember", "pipa", "pvc") to
+                "♻️ **Sampah Plastik**: Bersihkan dan keringkan botol atau wadah plastik sebelum disetorkan ke SIRAM. Plastik yang bersih memiliki nilai jual lebih tinggi dan lebih mudah didaur ulang menjadi bijih plastik.",
+
+        // Kategori Kertas
+        listOf("kertas", "kardus", "koran", "majalah", "hvs", "buku") to
+                "📦 **Kertas & Kardus**: Lipat kardus agar tidak memakan tempat dan pastikan tidak basah atau terkena minyak. Kertas sangat bernilai tinggi dalam industri daur ulang pulp.",
+
+        // Kategori Logam
+        listOf("logam", "besi", "kaleng", "aluminium", "tembaga", "seng", "paku") to
+                "⚙️ **Logam & Besi**: Kaleng minuman aluminium, potongan besi, dan tembaga adalah jenis sampah dengan nilai ekonomis tertinggi di bank sampah. Kumpulkan dan pisahkan dari material lain.",
+
+        // Kategori Organik
+        listOf("organik", "sisa makanan", "sayur", "buah", "daun", "nasi", "kompos") to
+                "🌱 **Sampah Organik**: Sampah sisa makanan dan daun kering sangat ideal diolah menjadi pupuk kompos atau pakan maggot. Anda juga bisa menguburnya di pekarangan rumah untuk menyuburkan tanah.",
+
+        // Kategori B3
+        listOf("b3", "baterai", "lampu", "neon", "obat nyamuk", "kimia", "jarum", "medis") to
+                "⚠️ **Limbah B3 (Bahan Berbahaya & Beracun)**: Baterai bekas, lampu neon, dan limbah kimia memerlukan penanganan khusus dan tidak boleh dibuang sembarangan karena mencemari air dan tanah.",
+
+        // Fitur: Catat Sampah
+        listOf("catat", "input", "mandiri", "menimbang") to
+                "📝 **Fitur Catat Sampah**: Gunakan menu 'Catat Sampah' di dashboard untuk mencatat jenis dan estimasi berat sampah Anda secara mandiri sebelum divalidasi oleh admin.",
+
+        // Fitur: Jemput Sampah
+        listOf("jemput", "kurir", "rumah", "datang", "pickup") to
+                "🚚 **Fitur Jemput Sampah**: Pilih menu 'Jemput Sampah' untuk memesan kurir lapangan SIRAM agar datang langsung ke rumah Anda. Masukkan alamat lengkap dan nomor HP yang aktif.",
+
+        // Fitur: Tarik Saldo / Pencairan
+        listOf("tarik", "saldo", "pencairan", "uang", "gopay", "ovo", "dana", "rekening", "transfer") to
+                "💸 **Fitur Tarik Saldo**: Hasil penjualan sampah Anda akan menjadi saldo digital. Anda bisa mencairkannya kapan saja melalui menu 'Tarik Saldo' ke rekening bank atau dompet digital (GoPay, OVO, DANA).",
+
+        // Fitur: Lacak GPS
+        listOf("lacak", "gps", "peta", "map", "kurir", "posisi") to
+                "🗺️ **Lacak Armada GPS**: Gunakan fitur peta real-time di aplikasi untuk memantau posisi kurir penjemput yang sedang dalam perjalanan menuju lokasi Anda.",
+
+        // Sapaan
+        listOf("halo", "hi", "hai", "pagi", "siang", "malam", "assalamu", "p") to
+                "Halo! Ada yang bisa saya bantu terkait pemilahan sampah atau penggunaan aplikasi SIRAM hari ini? 😊",
+
+        // Terima kasih
+        listOf("terima kasih", "makasih", "thanks", "thx") to
+                "Sama-sama! Senang bisa membantu Anda menjaga kelestarian lingkungan bersama SIRAM. 🌱"
+    )
+
+    fun generateSmartResponse(query: String): String {
+        val q = query.lowercase()
+        for ((keywords, answer) in knowledgeBase) {
+            if (keywords.any { q.contains(it) }) {
+                return answer
             }
-        )
+        }
+        return "🤖 Terima kasih atas pertanyaannya! Berdasarkan panduan bank sampah SIRAM, pastikan Anda memilah sampah dengan benar (organik, anorganik, B3) sebelum melakukan setoran atau pemesanan penjemputan. Anda juga bisa menjelajahi fitur Catat Sampah, Jemput Sampah, dan Tarik Saldo di aplikasi ini. Ada hal lain yang ingin didiskusikan?"
     }
 
     Scaffold(
@@ -104,14 +135,14 @@ fun AiChatbotScreen(
                             )
                         }
                         Column {
-                            Text("SIRAM AI Assistant", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                            Text("Ditenagai Gemini AI ✨", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("SIRAM Smart Assistant", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text("100% Offline & Cerdas ⚡", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Kembali")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CardBackground)
@@ -124,6 +155,7 @@ fun AiChatbotScreen(
                 .padding(innerPadding)
                 .background(BackgroundLight)
         ) {
+            // CHAT MESSAGES LIST
             LazyColumn(
                 state = listState,
                 contentPadding = PaddingValues(16.dp),
@@ -132,26 +164,27 @@ fun AiChatbotScreen(
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                items(chatMessages) { msg ->
+                items(chatMessages) { message ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = if (msg.isUser) Arrangement.End else Arrangement.Start
+                        horizontalArrangement = if (message.isUser) Arrangement.End else Arrangement.Start
                     ) {
                         Surface(
                             shape = RoundedCornerShape(
                                 topStart = 16.dp,
                                 topEnd = 16.dp,
-                                bottomStart = if (msg.isUser) 16.dp else 4.dp,
-                                bottomEnd = if (msg.isUser) 4.dp else 16.dp
+                                bottomStart = if (message.isUser) 16.dp else 4.dp,
+                                bottomEnd = if (message.isUser) 4.dp else 16.dp
                             ),
-                            color = if (msg.isUser) UserBubble else BotBubble,
+                            color = if (message.isUser) UserBubble else BotBubble,
                             modifier = Modifier.widthIn(max = 280.dp)
                         ) {
                             Text(
-                                text = msg.text,
+                                text = message.text,
                                 fontSize = 13.sp,
-                                color = if (msg.isUser) Color.White else Color(0xFF1E293B),
-                                modifier = Modifier.padding(12.dp)
+                                color = if (message.isUser) Color.White else Color(0xFF1E293B),
+                                modifier = Modifier.padding(12.dp),
+                                lineHeight = 18.sp
                             )
                         }
                     }
@@ -159,47 +192,58 @@ fun AiChatbotScreen(
 
                 if (isLoading) {
                     item {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Start
+                        ) {
                             Surface(
                                 shape = RoundedCornerShape(16.dp),
                                 color = BotBubble
                             ) {
-                                Text(
-                                    text = "Sedang mengetik...",
-                                    fontSize = 12.sp,
-                                    color = Color.Gray,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                                )
+                                Row(
+                                    modifier = Modifier.padding(12.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(14.dp),
+                                        strokeWidth = 2.dp,
+                                        color = PrimaryGreen
+                                    )
+                                    Text("Sedang berpikir...", fontSize = 12.sp, color = Color(0xFF64748B))
+                                }
                             }
                         }
                     }
                 }
             }
 
+            // INPUT BAR
             Surface(
                 color = CardBackground,
-                tonalElevation = 4.dp,
+                tonalElevation = 8.dp,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     OutlinedTextField(
                         value = inputMessage,
                         onValueChange = { inputMessage = it },
-                        placeholder = { Text("Tanyakan sesuatu seputar sampah...", fontSize = 13.sp) },
+                        placeholder = { Text("Tanya tentang sampah atau aplikasi...", fontSize = 13.sp) },
                         singleLine = true,
-                        enabled = !isLoading,
                         shape = RoundedCornerShape(24.dp),
-                        modifier = Modifier.weight(1f),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = PrimaryGreen,
-                            unfocusedBorderColor = Color(0xFFE2E8F0)
-                        )
+                            unfocusedBorderColor = Color(0xFFE2E8F0),
+                            focusedContainerColor = BackgroundLight,
+                            unfocusedContainerColor = BackgroundLight
+                        ),
+                        modifier = Modifier.weight(1f)
                     )
 
                     IconButton(
@@ -211,47 +255,20 @@ fun AiChatbotScreen(
                                 isLoading = true
 
                                 coroutineScope.launch {
-                                    if (chatMessages.isNotEmpty()) {
-                                        listState.animateScrollToItem(chatMessages.size - 1)
-                                    }
-
-                                    try {
-                                        val responseText = withContext(Dispatchers.IO) {
-                                            val response = generativeModel.generateContent(userText)
-                                            response.text
-                                        }
-
-                                        val reply: String = if (!responseText.isNullOrEmpty()) {
-                                            responseText
-                                        } else {
-                                            "Maaf, AI tidak memberikan jawaban untuk pertanyaan tersebut."
-                                        }
-
-                                        chatMessages.add(ChatMessage(text = reply, isUser = false))
-                                    } catch (e: Exception) {
-                                        Log.e("SIRAM_GEMINI", "Error saat memanggil API: ${e.message}", e)
-
-                                        val errorText: String = e.localizedMessage ?: "Terjadi kesalahan yang tidak diketahui."
-                                        chatMessages.add(
-                                            ChatMessage(
-                                                text = "Error API: $errorText",
-                                                isUser = false
-                                            )
-                                        )
-                                    } finally {
-                                        isLoading = false
-                                        if (chatMessages.isNotEmpty()) {
-                                            listState.animateScrollToItem(chatMessages.size - 1)
-                                        }
-                                    }
+                                    listState.animateScrollToItem(chatMessages.size - 1)
+                                    // Simulasi jeda berpikir agar natural
+                                    delay(600)
+                                    val botReply = generateSmartResponse(userText)
+                                    chatMessages.add(ChatMessage(text = botReply, isUser = false))
+                                    isLoading = false
+                                    listState.animateScrollToItem(chatMessages.size - 1)
                                 }
                             }
                         },
-                        enabled = !isLoading,
                         modifier = Modifier
-                            .size(44.dp)
+                            .size(46.dp)
                             .clip(CircleShape)
-                            .background(if (isLoading) Color.Gray else PrimaryGreen)
+                            .background(if (inputMessage.isNotBlank()) PrimaryGreen else Color(0xFF94A3B8))
                     ) {
                         Icon(
                             imageVector = Icons.Default.Send,

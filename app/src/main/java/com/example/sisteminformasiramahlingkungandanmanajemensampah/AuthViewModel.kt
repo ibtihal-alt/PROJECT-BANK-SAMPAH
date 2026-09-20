@@ -129,12 +129,25 @@ class AuthViewModel : ViewModel() {
             return
         }
 
-        firestore.collection("users")
-            .document(uid)
-            .get()
+        val docRef = firestore.collection("users").document(uid)
+        docRef.get()
             .addOnSuccessListener { document ->
-                val role = document.getString("role") ?: "nasabah"
-                onResult(role)
+                if (document != null && document.exists()) {
+                    val role = document.getString("role") ?: "nasabah"
+                    onResult(role)
+                } else {
+                    val email = auth.currentUser?.email ?: ""
+                    val userData = hashMapOf(
+                        "uid" to uid,
+                        "email" to email,
+                        "nama" to email.substringBefore("@"),
+                        "role" to "nasabah",
+                        "createdAt" to System.currentTimeMillis()
+                    )
+                    docRef.set(userData)
+                        .addOnSuccessListener { onResult("nasabah") }
+                        .addOnFailureListener { onResult("nasabah") }
+                }
             }
             .addOnFailureListener {
                 onResult("nasabah")

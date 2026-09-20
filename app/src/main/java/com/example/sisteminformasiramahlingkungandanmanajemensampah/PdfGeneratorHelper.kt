@@ -140,4 +140,83 @@ object PdfGeneratorHelper {
             Toast.makeText(context, "❌ Gagal mencetak struk: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
         }
     }
+
+    fun cetakLaporanKeuanganPdf(context: Context, totalTonase: Double, totalNominal: Double, totalKurir: Int) {
+        val pdfDocument = PdfDocument()
+        val paint = Paint()
+        val titlePaint = Paint()
+
+        val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create() // A4 Size
+        val page = pdfDocument.startPage(pageInfo)
+        val canvas: Canvas = page.canvas
+
+        canvas.drawColor(Color.WHITE)
+
+        titlePaint.color = Color.rgb(0, 108, 76)
+        titlePaint.textSize = 24f
+        titlePaint.isFakeBoldText = true
+        canvas.drawText("LAPORAN KEUANGAN & OPERASIONAL SIRAM", 40f, 50f, titlePaint)
+
+        paint.color = Color.rgb(100, 116, 139)
+        paint.textSize = 12f
+        val dateFormat = SimpleDateFormat("dd MMMM yyyy • HH:mm", Locale("id", "ID"))
+        canvas.drawText("Dicetak pada: ${dateFormat.format(Date())}", 40f, 75f, paint)
+
+        paint.color = Color.rgb(226, 232, 240)
+        paint.strokeWidth = 2f
+        canvas.drawLine(40f, 95f, 555f, 95f, paint)
+
+        var startY = 140f
+        val labelPaint = Paint().apply { color = Color.rgb(100, 116, 139); textSize = 14f }
+        val valuePaint = Paint().apply { color = Color.rgb(15, 23, 42); textSize = 16f; isFakeBoldText = true }
+        val currencyFormat = NumberFormat.getCurrencyInstance(Locale("id", "ID"))
+
+        val rows = listOf(
+            "Total Tonase Sampah Terkumpul" to "${String.format("%.2f", totalTonase)} Kg",
+            "Total Saldo/Pencairan Tervalidasi" to currencyFormat.format(totalNominal),
+            "Jumlah Kurir/Admin Terdaftar" to "$totalKurir Orang",
+            "Status Sistem" to "Aktif & Berjalan Normal"
+        )
+
+        for ((label, value) in rows) {
+            canvas.drawText(label, 40f, startY, labelPaint)
+            canvas.drawText(value, 350f, startY, valuePaint)
+            startY += 40f
+        }
+
+        canvas.drawLine(40f, startY + 10f, 555f, startY + 10f, paint)
+        startY += 60f
+
+        val footerPaint = Paint().apply { color = Color.rgb(148, 163, 184); textSize = 11f; textAlign = Paint.Align.CENTER }
+        canvas.drawText("Laporan Resmi Super Admin • Sistem Informasi Ramah Lingkungan dan Manajemen Sampah", 297f, startY, footerPaint)
+
+        pdfDocument.finishPage(page)
+
+        val fileName = "Laporan_Keuangan_SIRAM_${System.currentTimeMillis()}.pdf"
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+                    put(MediaStore.MediaColumns.MIME_TYPE, "application/pdf")
+                    put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS)
+                }
+                val uri = context.contentResolver.insert(MediaStore.Files.getContentUri("external"), contentValues)
+                if (uri != null) {
+                    context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                        pdfDocument.writeTo(outputStream)
+                    }
+                }
+            } else {
+                val targetDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val file = File(targetDir, fileName)
+                pdfDocument.writeTo(FileOutputStream(file))
+            }
+
+            pdfDocument.close()
+            Toast.makeText(context, "✅ Laporan Keuangan PDF berhasil disimpan ke Downloads!", Toast.LENGTH_LONG).show()
+        } catch (e: Exception) {
+            pdfDocument.close()
+            Toast.makeText(context, "❌ Gagal mencetak laporan: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+        }
+    }
 }

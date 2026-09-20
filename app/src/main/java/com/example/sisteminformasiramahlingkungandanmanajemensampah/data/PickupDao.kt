@@ -12,21 +12,20 @@ interface PickupDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(pickup: PickupTransaction): Long
-// Tambahkan kueri ini di dalam interface PickupDao
 
     @Query("SELECT SUM(totalNominalRp) FROM pickup_transactions WHERE userId = :userId AND status = 'SELESAI'")
     fun getTotalSaldoPickupByUser(userId: String): Flow<Double?>
 
     @Query("SELECT SUM(CASE WHEN beratAktualKg > 0 THEN beratAktualKg ELSE estimasiBeratKg END) FROM pickup_transactions WHERE userId = :userId AND status = 'SELESAI'")
     fun getTotalBeratPickupByUser(userId: String): Flow<Double?>
+
     @Update
     suspend fun update(pickup: PickupTransaction)
 
-    // Perbaikan: pickup_transaction -> pickup_transactions
     @Query("SELECT * FROM pickup_transactions WHERE userId = :userId ORDER BY tanggalJemput DESC")
     fun getAllPickupByUser(userId: String): Flow<List<PickupTransaction>>
 
-    @Query("SELECT * FROM pickup_transactions WHERE userId = :userId AND status != 'SELESAI' ORDER BY tanggalJemput DESC")
+    @Query("SELECT * FROM pickup_transactions WHERE userId = :userId AND status IN ('MENUNGGU', 'DIPROSES') ORDER BY tanggalJemput DESC")
     fun getActivePickupByUser(userId: String): Flow<List<PickupTransaction>>
 
     @Query("UPDATE pickup_transactions SET firebaseId = :firebaseId WHERE id = :id")

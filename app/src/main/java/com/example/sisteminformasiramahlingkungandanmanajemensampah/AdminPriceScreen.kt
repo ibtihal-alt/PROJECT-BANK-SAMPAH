@@ -10,6 +10,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocalOffer
 import androidx.compose.material3.*
@@ -40,6 +41,30 @@ fun AdminPriceScreen(
 
     var selectedItemForEdit by remember { mutableStateOf<HargaSampah?>(null) }
     var inputHargaBaru by remember { mutableStateOf("") }
+    var itemToDelete by remember { mutableStateOf<HargaSampah?>(null) }
+
+    // Dialog Konfirmasi Hapus Kategori Harga
+    itemToDelete?.let { item ->
+        AlertDialog(
+            onDismissRequest = { itemToDelete = null },
+            title = { Text("Hapus Kategori ${item.jenisSampah}?", fontWeight = FontWeight.Bold) },
+            text = { Text("Kategori sampah ini akan dihapus dari daftar tarif harga secara permanen.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.hapusHargaSampah(item.jenisSampah)
+                        itemToDelete = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626))
+                ) {
+                    Text("HAPUS")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { itemToDelete = null }) { Text("BATAL") }
+            }
+        )
+    }
 
     // State untuk Dialog Tambah Kategori Sampah Baru (Random)
     var showAddDialog by remember { mutableStateOf(false) }
@@ -304,17 +329,34 @@ fun AdminPriceScreen(
                                         }
                                     }
 
-                                    OutlinedButton(
-                                        onClick = {
-                                            selectedItemForEdit = item
-                                            inputHargaBaru = item.hargaPerKg.toInt().toString()
-                                        },
-                                        shape = RoundedCornerShape(8.dp),
-                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                                    ) {
-                                        Icon(imageVector = Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(text = "Ubah", fontSize = 12.sp)
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                selectedItemForEdit = item
+                                                inputHargaBaru = item.hargaPerKg.toInt().toString()
+                                            },
+                                            shape = RoundedCornerShape(8.dp),
+                                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                                        ) {
+                                            Icon(imageVector = Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(14.dp))
+                                            Spacer(modifier = Modifier.width(4.dp))
+                                            Text(text = "Ubah", fontSize = 12.sp)
+                                        }
+
+                                        IconButton(
+                                            onClick = { itemToDelete = item },
+                                            modifier = Modifier
+                                                .size(36.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFFFEE2E2))
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.Delete,
+                                                contentDescription = "Hapus",
+                                                tint = Color(0xFFDC2626),
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }

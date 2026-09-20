@@ -57,7 +57,7 @@ fun CatatSampahScreen(
 
     LaunchedEffect(jenisSampah) {
         if (jenisSampah.isNotBlank()) {
-            val hg = viewModel.getHargaDefaultByJenis(jenisSampah)
+            val hg = viewModel.getHargaRiilByJenis(jenisSampah)
             hargaPerKgText = if (hg > 0) hg.toInt().toString() else ""
         }
     }
@@ -67,7 +67,12 @@ fun CatatSampahScreen(
     val totalEstimasi = beratDouble * hargaDouble
 
     val scrollState = rememberScrollState()
-    val rekomendasiKategori = listOf("Plastik", "Kardus", "Kertas", "Kaleng", "Logam")
+    val daftarHarga by viewModel.semuaHargaSampah.collectAsState(initial = emptyList())
+    val rekomendasiKategori = if (daftarHarga.isNotEmpty()) {
+        daftarHarga.map { it.jenisSampah }
+    } else {
+        listOf("Plastik", "Kardus", "Kertas", "Kaleng", "Logam")
+    }
 
     Scaffold(
         topBar = {

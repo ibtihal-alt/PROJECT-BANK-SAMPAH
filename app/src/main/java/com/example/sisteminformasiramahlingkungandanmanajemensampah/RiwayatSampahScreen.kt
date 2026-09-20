@@ -8,7 +8,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DeleteSweep
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PictureAsPdf
@@ -254,7 +253,6 @@ fun RiwayatSampahScreen(
                         items(items = semuaSampah, key = { it.id }) { sampah ->
                             CommercialRiwayatSampahItem(
                                 sampah = sampah,
-                                onEditClick = { onEditClick(sampah) },
                                 onHapusClick = { sampahYangAkanDihapus = sampah }
                             )
                         }
@@ -268,7 +266,6 @@ fun RiwayatSampahScreen(
 @Composable
 private fun CommercialRiwayatSampahItem(
     sampah: Sampah,
-    onEditClick: () -> Unit,
     onHapusClick: () -> Unit
 ) {
     val context = LocalContext.current
@@ -413,23 +410,6 @@ private fun CommercialRiwayatSampahItem(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.End
                 ) {
-                    OutlinedButton(
-                        onClick = onEditClick,
-                        shape = RoundedCornerShape(8.dp),
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                        modifier = Modifier.height(34.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Edit,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = "Edit", fontSize = 12.sp)
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
                     IconButton(
                         onClick = onHapusClick,
                         modifier = Modifier.size(34.dp)

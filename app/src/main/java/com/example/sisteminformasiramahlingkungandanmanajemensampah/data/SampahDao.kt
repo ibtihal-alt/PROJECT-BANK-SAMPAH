@@ -26,12 +26,19 @@ interface SampahDao {
     // =========================
     @Query("""
         SELECT * FROM sampah
-        WHERE userId = :userId
+        WHERE userId = :userId AND isDeleted = 0
         ORDER BY tanggal DESC
     """)
     fun getAllSampah(
         userId: String
     ): Flow<List<Sampah>>
+
+    @Query("""
+        UPDATE sampah
+        SET isDeleted = 1
+        WHERE id = :id
+    """)
+    suspend fun softDelete(id: Int)
 
 
     // =========================

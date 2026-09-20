@@ -1,5 +1,6 @@
 package com.example.sisteminformasiramahlingkungandanmanajemensampah
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -68,20 +69,10 @@ class MainActivity : ComponentActivity() {
                             },
                             onLoginSuccess = {
                                 authViewModel.fetchUserRole { role ->
-                                    when (role.lowercase()) {
-                                        "admin", "super_admin" -> {
-                                            navController.navigate("admin_dashboard") {
-                                                popUpTo("login") {
-                                                    inclusive = true
-                                                }
-                                            }
-                                        }
-                                        else -> {
-                                            navController.navigate("dashboard") {
-                                                popUpTo("login") {
-                                                    inclusive = true
-                                                }
-                                            }
+                                    val r = role.lowercase().ifBlank { "user" }
+                                    navController.navigate("welcome_animation/$r") {
+                                        popUpTo("login") {
+                                            inclusive = true
                                         }
                                     }
                                 }
@@ -150,19 +141,22 @@ class MainActivity : ComponentActivity() {
                             },
                             onProfileClick = {
                                 navController.navigate("profile")
+                            },
+                            onRiwayatJemputClick = {
+                                navController.navigate("riwayat_jemput")
+                            },
+                            onTrackClick = {
+                                navController.navigate("tracking_map/false")
                             }
                         )
                     }
 
                     // =========================
-                    // DASHBOARD ADMIN
+                    // DASHBOARD ADMIN (KURIR)
                     // =========================
                     composable("admin_dashboard") {
                         AdminDashboardScreen(
                             viewModel = sampahViewModel,
-                            onPriceManagerClick = {
-                                navController.navigate("admin_price_manager")
-                            },
                             onLogoutClick = {
                                 authViewModel.logout()
                                 navController.navigate("login") {
@@ -172,6 +166,42 @@ class MainActivity : ComponentActivity() {
                                     launchSingleTop = true
                                 }
                             }
+                        )
+                    }
+
+                    // =========================
+                    // SUPER ADMIN DASHBOARD
+                    // =========================
+                    composable("super_admin_dashboard") {
+                        SuperAdminDashboardScreen(
+                            viewModel = sampahViewModel,
+                            onPriceManagerClick = {
+                                navController.navigate("admin_price_manager")
+                            },
+                            onTrackingClick = {
+                                navController.navigate("tracking_map/all")
+                            },
+                            onBroadcastClick = {
+                                navController.navigate("broadcast")
+                            },
+                            onLogoutClick = {
+                                authViewModel.logout()
+                                navController.navigate("login") {
+                                    popUpTo("super_admin_dashboard") {
+                                        inclusive = true
+                                    }
+                                    launchSingleTop = true
+                                }
+                            }
+                        )
+                    }
+
+                    // =========================
+                    // BROADCAST SCREEN
+                    // =========================
+                    composable("broadcast") {
+                        BroadcastScreen(
+                            onBackClick = { navController.popBackStack() }
                         )
                     }
 
@@ -188,17 +218,42 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // =========================
+                    // WELCOME ANIMATION SCREEN
+                    // =========================
+                    composable(
+                        route = "welcome_animation/{role}",
+                        arguments = listOf(navArgument("role") { type = NavType.StringType })
+                    ) { backStackEntry ->
+                        val role = backStackEntry.arguments?.getString("role") ?: "user"
+                        WelcomeAnimationScreen {
+                            val destination = when (role) {
+                                "super_admin" -> "super_admin_dashboard"
+                                "admin" -> "admin_dashboard"
+                                else -> "dashboard"
+                            }
+                            navController.navigate(destination) {
+                                popUpTo("welcome_animation/{role}") {
+                                    inclusive = true
+                                }
+                            }
+                        }
+                    }
+
+                    // =========================
                     // FITUR PENJEMPUTAN SAMPAH
                     // =========================
                     composable("jemput_sampah") {
                         JemputSampahScreen(
-                            onAjukanClick = { jenis, berat, alamat, hp, catatan ->
+                            viewModel = sampahViewModel,
+                            onAjukanClick = { jenis, berat, alamat, hp, catatan, lat, lng ->
                                 sampahViewModel.ajukanPenjemputan(
                                     jenisSampah = jenis,
                                     estimasiBeratKg = berat,
                                     alamatLengkap = alamat,
                                     nomorHp = hp,
-                                    catatan = catatan
+                                    catatan = catatan,
+                                    latitude = lat,
+                                    longitude = lng
                                 )
                                 navController.navigate("riwayat_jemput") {
                                     popUpTo("jemput_sampah") { inclusive = true }
@@ -215,6 +270,48 @@ class MainActivity : ComponentActivity() {
                             viewModel = sampahViewModel,
                             onTambahJemputClick = {
                                 navController.navigate("jemput_sampah")
+                            },
+                            onTrackClick = { pickup ->
+                                val courierId = pickup.assignedKurirId
+                                val lat = pickup.latitude
+                                val lng = pickup.longitude
+                                val addr = Uri.encode(pickup.alamatLengkap)
+                                navController.navigate("tracking_map/false?courierId=$courierId&lat=$lat&lng=$lng&addr=$addr")
+                            },
+                            onBackClick = {
+                                navController.popBackStack()
+                            }
+                        )
+                    }
+
+                    // =========================
+                    // LACAK ARMADA GPS MAPS
+                    // =========================
+                    composable(
+                        route = "tracking_map/{mode}?courierId={courierId}&lat={lat}&lng={lng}&addr={addr}",
+                        arguments = listOf(
+                            navArgument("mode") { type = NavType.StringType; defaultValue = "false" },
+                            navArgument("courierId") { type = NavType.StringType; defaultValue = ""; nullable = true },
+                            navArgument("lat") { type = NavType.FloatType; defaultValue = 0f },
+                            navArgument("lng") { type = NavType.FloatType; defaultValue = 0f },
+                            navArgument("addr") { type = NavType.StringType; defaultValue = ""; nullable = true }
+                        )
+                    ) { backStackEntry ->
+                        val mode = backStackEntry.arguments?.getString("mode") ?: "false"
+                        val courierId = backStackEntry.arguments?.getString("courierId") ?: ""
+                        val lat = backStackEntry.arguments?.getFloat("lat")?.toDouble() ?: 0.0
+                        val lng = backStackEntry.arguments?.getFloat("lng")?.toDouble() ?: 0.0
+                        val addr = backStackEntry.arguments?.getString("addr") ?: ""
+                        val isAdmin = mode == "true"
+                        val isMulti = mode == "all"
+                        TrackingMapScreen(
+                            courierIdToTrack = if (isMulti) "all" else courierId,
+                            isAdminMode = isAdmin,
+                            userPickupLat = lat,
+                            userPickupLng = lng,
+                            userPickupAddress = addr,
+                            onBackClick = {
+                                navController.popBackStack()
                             }
                         )
                     }
@@ -316,6 +413,9 @@ class MainActivity : ComponentActivity() {
                     composable("profile") {
                         ProfileScreen(
                             themePreferences = themePreferences,
+                            onMutasiSaldoClick = { navController.navigate("mutasi_saldo") },
+                            onEcoEducationClick = { navController.navigate("eco_education") },
+                            onHelpCenterClick = { navController.navigate("help_center") },
                             onLogoutClick = {
                                 authViewModel.logout()
                                 navController.navigate("login") {
@@ -324,7 +424,30 @@ class MainActivity : ComponentActivity() {
                                     }
                                     launchSingleTop = true
                                 }
-                            }
+                            },
+                            onBackClick = { navController.popBackStack() }
+                        )
+                    }
+
+                    // =========================
+                    // MUTASI SALDO, EDUKASI, BANTUAN
+                    // =========================
+                    composable("mutasi_saldo") {
+                        MutasiSaldoScreen(
+                            viewModel = sampahViewModel,
+                            onBackClick = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable("eco_education") {
+                        EcoEducationScreen(
+                            onBackClick = { navController.popBackStack() }
+                        )
+                    }
+
+                    composable("help_center") {
+                        HelpCenterScreen(
+                            onBackClick = { navController.popBackStack() }
                         )
                     }
                 }

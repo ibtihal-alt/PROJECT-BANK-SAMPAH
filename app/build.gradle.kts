@@ -62,6 +62,14 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.mlkit:image-labeling:17.0.9")
     implementation("androidx.compose.material:material-icons-extended")
-        // Google AI SDK untuk Gemini API
-        implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
+    // Google AI SDK untuk Gemini API
+    implementation("com.google.ai.client.generativeai:generativeai:0.9.0")
+    // Google Maps & Location untuk Lacak Armada GPS
+    implementation("com.google.android.gms:play-services-location:21.3.0")
+    implementation("com.google.android.gms:play-services-maps:19.0.0")
+    implementation("com.google.maps.android:maps-compose:6.1.0")
+    // Coil untuk Image Loading dari Gallery URI
+    implementation("io.coil-kt:coil-compose:2.7.0")
+    // WorkManager untuk Offline Sync
+    implementation("androidx.work:work-runtime-ktx:2.10.0")
     }

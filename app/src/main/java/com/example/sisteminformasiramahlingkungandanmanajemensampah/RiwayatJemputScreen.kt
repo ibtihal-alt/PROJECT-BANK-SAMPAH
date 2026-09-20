@@ -9,6 +9,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.LocalShipping
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +27,7 @@ import java.util.Locale
 fun RiwayatJemputScreen(
     viewModel: SampahViewModel,
     onTambahJemputClick: () -> Unit = {},
+    onTrackClick: (PickupTransaction) -> Unit = {},
     onBackClick: () -> Unit = {}
 ) {
     val daftarPickup by viewModel.semuaPenjemputan.collectAsState(initial = emptyList())
@@ -79,7 +81,7 @@ fun RiwayatJemputScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(daftarPickup) { pickup ->
-                        UserPickupStatusCard(pickup = pickup)
+                        UserPickupStatusCard(pickup = pickup, onTrackClick = { onTrackClick(pickup) })
                     }
                 }
             }
@@ -88,7 +90,7 @@ fun RiwayatJemputScreen(
 }
 
 @Composable
-private fun UserPickupStatusCard(pickup: PickupTransaction) {
+private fun UserPickupStatusCard(pickup: PickupTransaction, onTrackClick: (PickupTransaction) -> Unit) {
     val currencyFormat = remember { NumberFormat.getCurrencyInstance(Locale("id", "ID")) }
 
     val (statusColor, statusBg, statusText) = when (pickup.status.uppercase()) {
@@ -148,6 +150,20 @@ private fun UserPickupStatusCard(pickup: PickupTransaction) {
                 color = Color(0xFF64748B)
             )
 
+            if (pickup.status.uppercase() == "DIPROSES") {
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = { onTrackClick(pickup) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
+                ) {
+                    Icon(imageVector = Icons.Default.MyLocation, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("LACAK POSISI KURIR DI PETA", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                }
+            }
+
             if (pickup.status.uppercase() == "SELESAI" && pickup.totalNominalRp > 0) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Surface(
@@ -160,12 +176,12 @@ private fun UserPickupStatusCard(pickup: PickupTransaction) {
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Saldo Ditambahkan:", fontSize = 12.sp, color = Color(0xFF15803D))
+                        Text("Saldo Masuk:", fontSize = 12.sp, color = Color(0xFF16A34A), fontWeight = FontWeight.SemiBold)
                         Text(
                             text = currencyFormat.format(pickup.totalNominalRp),
-                            fontSize = 15.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF15803D)
+                            color = Color(0xFF16A34A)
                         )
                     }
                 }

@@ -12,9 +12,9 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         Sampah::class,
         PickupTransaction::class,
         PenarikanSaldo::class,
-        HargaSampah::class // <- WAJIB: Daftarkan entitas ini agar tabel SQLite dibuat
+        HargaSampah::class
     ],
-    version = 8, // Naikkan versi database dari 7 ke 8
+    version = 10,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -48,7 +48,7 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
-        // Migration database versi 5 → 6 (Perbaikan nama tabel & kolom baru)
+        // Migration database versi 5 → 6
         private val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(database: SupportSQLiteDatabase) {
                 database.execSQL(
@@ -73,6 +73,18 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Migration database versi 9 → 10 (Penambahan latitude & longitude pada pickup_transactions)
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                try {
+                    database.execSQL("ALTER TABLE pickup_transactions ADD COLUMN latitude REAL NOT NULL DEFAULT 0.0")
+                    database.execSQL("ALTER TABLE pickup_transactions ADD COLUMN longitude REAL NOT NULL DEFAULT 0.0")
+                } catch (e: Exception) {
+                    // ignore jika kolom sudah ada
+                }
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
 
             return INSTANCE ?: synchronized(this) {
@@ -82,8 +94,8 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "siram_database"
                 )
-                    .addMigrations(MIGRATION_3_4, MIGRATION_5_6)
-                    .fallbackToDestructiveMigration() // Reset otomatis database lokal karena ada penambahan tabel baru
+                    .addMigrations(MIGRATION_3_4, MIGRATION_5_6, MIGRATION_9_10)
+                    .fallbackToDestructiveMigration()
                     .build()
 
                 INSTANCE = instance

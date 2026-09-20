@@ -1,5 +1,10 @@
 package com.example.sisteminformasiramahlingkungandanmanajemensampah
 
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -24,12 +29,15 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.Analytics
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Campaign
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LocalShipping
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Recycling
+import com.google.firebase.firestore.FirebaseFirestore
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -41,19 +49,27 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import android.net.Uri
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import java.io.File
 import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.PickupTransaction
 import java.text.NumberFormat
 import java.util.Locale
@@ -73,12 +89,51 @@ fun DashboardScreen(
     onStatistikClick: () -> Unit = {},
     onRiwayatClick: () -> Unit = {},
     onProfileClick: () -> Unit = {},
-    onTarikSaldoClick: () -> Unit = {}
+    onTarikSaldoClick: () -> Unit = {},
+    onRiwayatJemputClick: () -> Unit = {},
+    onTrackClick: () -> Unit = {}
 ) {
     val totalBerat by viewModel.totalBerat.collectAsState(initial = 0.0)
     val totalNilai by viewModel.totalNilai.collectAsState(initial = 0.0)
     val semuaSampah by viewModel.semuaSampah.collectAsState(initial = emptyList())
     val penjemputanAktif by viewModel.penjemputanAktif.collectAsState(initial = emptyList())
+
+    val context = LocalContext.current
+    val userPreferences = remember { UserPreferences(context) }
+    val profilePhotoUri = userPreferences.fotoProfil
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ -> }
+
+    LaunchedEffect(Unit) {
+        val hasLocation = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        if (!hasLocation) {
+            permissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+        }
+    }
+
+    var latestBroadcast by remember { mutableStateOf<Map<String, Any>?>(null) }
+    LaunchedEffect(Unit) {
+        try {
+            FirebaseFirestore.getInstance().collection("broadcasts")
+                .orderBy("timestamp", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .limit(1)
+                .get()
+                .addOnSuccessListener { result ->
+                    if (!result.isEmpty) {
+                        latestBroadcast = result.documents[0].data
+                    }
+                }
+        } catch (e: Exception) {
+            // ignore
+        }
+    }
 
     val aktivitasTerbaru = semuaSampah.take(3)
     val currencyFormat = remember { NumberFormat.getCurrencyInstance(Locale("id", "ID")) }
@@ -132,19 +187,79 @@ fun DashboardScreen(
                         IconButton(
                             onClick = onProfileClick,
                             modifier = Modifier
+                                .size(42.dp)
                                 .clip(CircleShape)
                                 .background(Color.White.copy(alpha = 0.2f))
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.Person,
-                                contentDescription = "Profil Saya",
-                                tint = Color.White,
-                                modifier = Modifier.size(24.dp)
-                            )
+                            if (profilePhotoUri.isNotBlank()) {
+                                AsyncImage(
+                                    model = if (profilePhotoUri.startsWith("/")) File(profilePhotoUri) else Uri.parse(profilePhotoUri),
+                                    contentDescription = "Profil Saya",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize().clip(CircleShape)
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Person,
+                                    contentDescription = "Profil Saya",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
                         }
                     }
 
                     Spacer(modifier = Modifier.height(20.dp))
+
+                    latestBroadcast?.let { broadcast ->
+                        val judul = broadcast["judul"] as? String ?: "Pengumuman Sistem"
+                        val pesan = broadcast["pesan"] as? String ?: ""
+                        var isDismissed by remember { mutableStateOf(false) }
+
+                        if (!isDismissed) {
+                            Card(
+                                shape = RoundedCornerShape(16.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(14.dp),
+                                    verticalAlignment = Alignment.Top,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFD97706).copy(alpha = 0.2f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.Campaign, contentDescription = null, tint = Color(0xFFD97706), modifier = Modifier.size(20.dp))
+                                    }
+
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(text = judul, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF92400E))
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text(text = pesan, fontSize = 12.sp, color = Color(0xFF78350F), lineHeight = 16.sp)
+                                    }
+
+                                    IconButton(
+                                        onClick = { isDismissed = true },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(Icons.Default.Close, contentDescription = "Tutup", tint = Color(0xFF92400E), modifier = Modifier.size(14.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
 
                     // KARTU SALDO & WEIGHT RECAP
                     Card(
@@ -248,7 +363,13 @@ fun DashboardScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     AktifPickupWidget(
                         pickup = pickupTerbaru,
-                        onClick = onRiwayatClick
+                        onClick = {
+                            if (pickupTerbaru.status.uppercase() == "DIPROSES") {
+                                onTrackClick()
+                            } else {
+                                onRiwayatJemputClick()
+                            }
+                        }
                     )
                 }
                 Spacer(modifier = Modifier.height(16.dp))
