@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         PenarikanSaldo::class,
         HargaSampah::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -85,6 +85,20 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // Migration database versi 10 → 11 (Penambahan kolom Adaptive Priority DSS)
+        private val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                try {
+                    database.execSQL("ALTER TABLE pickup_transactions ADD COLUMN tingkatKepenuhan INTEGER NOT NULL DEFAULT 80")
+                    database.execSQL("ALTER TABLE pickup_transactions ADD COLUMN urgensiWarga TEXT NOT NULL DEFAULT 'SEDANG'")
+                    database.execSQL("ALTER TABLE pickup_transactions ADD COLUMN kapasitasTempatSampahLiter REAL NOT NULL DEFAULT 100.0")
+                    database.execSQL("ALTER TABLE pickup_transactions ADD COLUMN jenisWadah TEXT NOT NULL DEFAULT 'Tong Standar'")
+                } catch (e: Exception) {
+                    // ignore jika kolom sudah ada
+                }
+            }
+        }
+
         fun getDatabase(context: Context): AppDatabase {
 
             return INSTANCE ?: synchronized(this) {
@@ -94,7 +108,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "siram_database"
                 )
-                    .addMigrations(MIGRATION_3_4, MIGRATION_5_6, MIGRATION_9_10)
+                    .addMigrations(MIGRATION_3_4, MIGRATION_5_6, MIGRATION_9_10, MIGRATION_10_11)
                     .fallbackToDestructiveMigration()
                     .build()
 

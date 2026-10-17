@@ -23,5 +23,10 @@ data class PickupTransaction(
     val assignedKurirName: String = "",
     val fotoBuktiUri: String = "",
     val latitude: Double = 0.0,
-    val longitude: Double = 0.0
+    val longitude: Double = 0.0,
+    // ADAPTIVE CONTEXT-AWARE DSS FIELDS
+    val tingkatKepenuhan: Int = 80, // Persentase kepenuhan tempat sampah (10-100%)
+    val urgensiWarga: String = "SEDANG", // RENDAH, SEDANG, TINGGI, DARURAT
+    val kapasitasTempatSampahLiter: Double = 100.0, // Estimasi kapasitas wadah tempat sampah dalam liter
+    val jenisWadah: String = "Tong Standar" // Tong Standar, Kantong Plastik, Karung, Kontainer Komunal
 )

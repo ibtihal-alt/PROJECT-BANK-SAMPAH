@@ -14,6 +14,9 @@ import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.SampahD
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.PriorityCriteriaWeights
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,6 +39,20 @@ class SampahViewModel(
 
     private fun getUserId(): String {
         return auth.currentUser?.uid ?: ""
+    }
+
+    // ====================================================
+    // SISTEM PENDUKUNG KEPUTUSAN (SPK) PRIORITAS PENJEMPUTAN
+    // ====================================================
+    private val _criteriaWeights = MutableStateFlow(PriorityCriteriaWeights())
+    val criteriaWeights: StateFlow<PriorityCriteriaWeights> = _criteriaWeights.asStateFlow()
+
+    fun updateCriteriaWeights(newWeights: PriorityCriteriaWeights) {
+        _criteriaWeights.value = newWeights
+    }
+
+    fun resetCriteriaWeights() {
+        _criteriaWeights.value = PriorityCriteriaWeights()
     }
 
     // =========================
@@ -262,7 +279,11 @@ class SampahViewModel(
         nomorHp: String,
         catatan: String,
         latitude: Double = 0.0,
-        longitude: Double = 0.0
+        longitude: Double = 0.0,
+        tingkatKepenuhan: Int = 80,
+        urgensiWarga: String = "SEDANG",
+        kapasitasTempatSampahLiter: Double = 100.0,
+        jenisWadah: String = "Tong Standar"
     ) {
         val userId = getUserId()
         if (userId.isBlank()) return
@@ -279,7 +300,11 @@ class SampahViewModel(
                     catatan = catatan,
                     status = "MENUNGGU",
                     latitude = latitude,
-                    longitude = longitude
+                    longitude = longitude,
+                    tingkatKepenuhan = tingkatKepenuhan,
+                    urgensiWarga = urgensiWarga,
+                    kapasitasTempatSampahLiter = kapasitasTempatSampahLiter,
+                    jenisWadah = jenisWadah
                 )
 
                 val idBaru = pickupDao.insert(pickup)

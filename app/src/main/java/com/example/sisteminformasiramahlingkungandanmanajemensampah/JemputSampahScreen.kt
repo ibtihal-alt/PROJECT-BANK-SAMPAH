@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -61,7 +62,19 @@ private val OrangePendingBg = Color(0xFFFEF3C7)
 @Composable
 fun JemputSampahScreen(
     viewModel: SampahViewModel,
-    onAjukanClick: (jenis: String, berat: Double, alamat: String, hp: String, catatan: String, lat: Double, lng: Double) -> Unit,
+    onAjukanClick: (
+        jenis: String,
+        berat: Double,
+        alamat: String,
+        hp: String,
+        catatan: String,
+        lat: Double,
+        lng: Double,
+        tingkatKepenuhan: Int,
+        urgensiWarga: String,
+        kapasitasWadah: Double,
+        jenisWadah: String
+    ) -> Unit,
     onBackClick: () -> Unit = {}
 ) {
     val context = LocalContext.current
@@ -73,6 +86,12 @@ fun JemputSampahScreen(
     var nomorHp by remember { mutableStateOf(userPrefs.nomorHp) }
     var catatan by remember { mutableStateOf("") }
     var errorMessage by remember { mutableStateOf("") }
+
+    // STATE ADAPTIVE CONTEXT-AWARE PRIORITY
+    var tingkatKepenuhan by remember { mutableStateOf(80) }
+    var urgensiWarga by remember { mutableStateOf("SEDANG") }
+    var kapasitasWadahLiter by remember { mutableStateOf("100") }
+    var jenisWadah by remember { mutableStateOf("Tong Standar") }
 
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     var pickupLat by remember { mutableStateOf(0.0) }
@@ -418,21 +437,141 @@ fun JemputSampahScreen(
                                 modifier = Modifier.fillMaxWidth()
                             )
 
-                            // PESAN ERROR JIKA INPUTAN INVALID
-                            AnimatedVisibility(
-                                visible = errorMessage.isNotEmpty(),
-                                enter = fadeIn(),
-                                exit = fadeOut()
+                            // ==========================================================
+                            // KONDISI REAL-TIME & ADAPTIVE PRIORITY (DSS / SPK)
+                            // ==========================================================
+                            Surface(
+                                color = Color(0xFFF1F5F9),
+                                shape = RoundedCornerShape(16.dp),
+                                modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(
-                                    text = errorMessage,
-                                    color = MaterialTheme.colorScheme.error,
-                                    fontSize = 12.sp,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                                Column(modifier = Modifier.padding(14.dp)) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Surface(
+                                            color = Color(0xFF006C4C),
+                                            shape = CircleShape,
+                                            modifier = Modifier.size(24.dp)
+                                        ) {
+                                            Box(contentAlignment = Alignment.Center) {
+                                                Text("⚡", fontSize = 12.sp)
+                                            }
+                                        }
+                                        Text(
+                                            text = "Kondisi Real-Time Tempat Sampah (SPK)",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = Color(0xFF0F172A)
+                                        )
+                                    }
+                                    Text(
+                                        text = "Data ini membantu algoritma armada menghitung skor prioritas adaptif agar titik mendesak didahulukan.",
+                                        fontSize = 11.sp,
+                                        color = Color(0xFF64748B),
+                                        modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
+                                    )
+
+                                    // TINGKAT KEPENUHAN
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text("Tingkat Kepenuhan:", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF334155))
+                                        val fillBadgeColor = when {
+                                            tingkatKepenuhan >= 90 -> Color(0xFFDC2626)
+                                            tingkatKepenuhan >= 70 -> Color(0xFFEA580C)
+                                            tingkatKepenuhan >= 40 -> Color(0xFFCA8A04)
+                                            else -> Color(0xFF16A34A)
+                                        }
+                                        val fillBadgeText = when {
+                                            tingkatKepenuhan >= 90 -> "Kritis Meluap ($tingkatKepenuhan%)"
+                                            tingkatKepenuhan >= 70 -> "Hampir Penuh ($tingkatKepenuhan%)"
+                                            tingkatKepenuhan >= 40 -> "Sedang ($tingkatKepenuhan%)"
+                                            else -> "Rendah ($tingkatKepenuhan%)"
+                                        }
+                                        Surface(
+                                            color = fillBadgeColor.copy(alpha = 0.15f),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text(
+                                                text = fillBadgeText,
+                                                color = fillBadgeColor,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 11.sp,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Slider(
+                                        value = tingkatKepenuhan.toFloat(),
+                                        onValueChange = { tingkatKepenuhan = it.toInt() },
+                                        valueRange = 10f..100f,
+                                        steps = 8,
+                                        colors = SliderDefaults.colors(
+                                            thumbColor = PrimaryGreen,
+                                            activeTrackColor = PrimaryGreen
+                                        ),
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+
+                                    // URGENSI LAPORAN WARGA
+                                    Text(
+                                        text = "Tingkat Urgensi Pengambilan:",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF334155),
+                                        modifier = Modifier.padding(top = 6.dp, bottom = 4.dp)
+                                    )
+                                    val urgencyOptions = listOf(
+                                        "RENDAH" to "🟢 Normal",
+                                        "SEDANG" to "🟡 Sedang",
+                                        "TINGGI" to "🟠 Tinggi",
+                                        "DARURAT" to "🔴 Darurat (Meluap/Bau)"
+                                    )
+                                    LazyRow(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        items(urgencyOptions) { (key, label) ->
+                                            FilterChip(
+                                                selected = urgensiWarga == key,
+                                                onClick = { urgensiWarga = key },
+                                                label = { Text(label, fontSize = 11.sp, fontWeight = if (urgensiWarga == key) FontWeight.Bold else FontWeight.Normal) },
+                                                shape = RoundedCornerShape(10.dp)
+                                            )
+                                        }
+                                    }
+
+                                    // JENIS WADAH
+                                    Text(
+                                        text = "Wadah / Tempat Sampah:",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = Color(0xFF334155),
+                                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)
+                                    )
+                                    val wadahList = listOf("Tong Standar", "Kantong Plastik", "Karung", "Bak Komunal")
+                                    LazyRow(
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        items(wadahList) { item ->
+                                            FilterChip(
+                                                selected = jenisWadah == item,
+                                                onClick = { jenisWadah = item },
+                                                label = { Text(item, fontSize = 11.sp) },
+                                                shape = RoundedCornerShape(10.dp)
+                                            )
+                                        }
+                                    }
+                                }
                             }
 
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(10.dp))
 
                             // TOMBOL SUBMIT PENJEMPUTAN
                             Button(
@@ -452,7 +591,11 @@ fun JemputSampahScreen(
                                                 nomorHp.trim(),
                                                 catatan.trim(),
                                                 pickupLat,
-                                                pickupLng
+                                                pickupLng,
+                                                tingkatKepenuhan,
+                                                urgensiWarga,
+                                                kapasitasWadahLiter.toDoubleOrNull() ?: 100.0,
+                                                jenisWadah
                                             )
                                         }
                                     }

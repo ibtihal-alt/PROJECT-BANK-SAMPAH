@@ -75,6 +75,7 @@ fun SuperAdminDashboardScreen(
     onPriceManagerClick: () -> Unit = {},
     onTrackingClick: () -> Unit = {},
     onBroadcastClick: () -> Unit = {},
+    onSpkPriorityClick: () -> Unit = {},
     onLogoutClick: () -> Unit = {}
 ) {
     val firestore = remember { FirebaseFirestore.getInstance() }
@@ -380,7 +381,8 @@ fun SuperAdminDashboardScreen(
                                 onTrackingClick = onTrackingClick,
                                 onPriceClick = onPriceManagerClick,
                                 onBroadcastClick = onBroadcastClick,
-                                onAddKurirClick = { showAddAdminDialog = true }
+                                onAddKurirClick = { showAddAdminDialog = true },
+                                onSpkPriorityClick = onSpkPriorityClick
                             )
                         }
                     }
@@ -799,7 +801,8 @@ private fun SuperAdminControlCenterGrid(
     onTrackingClick: () -> Unit,
     onPriceClick: () -> Unit,
     onBroadcastClick: () -> Unit,
-    onAddKurirClick: () -> Unit
+    onAddKurirClick: () -> Unit,
+    onSpkPriorityClick: () -> Unit = {}
 ) {
     Card(
         shape = RoundedCornerShape(24.dp),
@@ -847,7 +850,7 @@ private fun SuperAdminControlCenterGrid(
                     shape = RoundedCornerShape(50.dp)
                 ) {
                     Text(
-                        text = "9 Modul",
+                        text = "10 Modul (DSS)",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
                         color = PrimaryGreen,
@@ -927,13 +930,22 @@ private fun SuperAdminControlCenterGrid(
                     )
                 }
 
-                AdminCommandTile(
-                    modifier = Modifier.fillMaxWidth(),
-                    icon = Icons.Default.Campaign,
-                    label = "Broadcast Pengumuman",
-                    color = Color(0xFFF59E0B),
-                    onClick = onBroadcastClick
-                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AdminCommandTile(
+                        modifier = Modifier.weight(1f),
+                        icon = Icons.Default.Bolt,
+                        label = "SPK Prioritas (DSS)",
+                        color = Color(0xFFDC2626),
+                        onClick = onSpkPriorityClick
+                    )
+                    AdminCommandTile(
+                        modifier = Modifier.weight(1f),
+                        icon = Icons.Default.Campaign,
+                        label = "Broadcast Info",
+                        color = Color(0xFFF59E0B),
+                        onClick = onBroadcastClick
+                    )
+                }
             }
         }
     }
@@ -1476,6 +1488,45 @@ private fun CommercialPickupCard(
 
             Text(text = "📍 Alamat: ${pickup.alamatLengkap}", fontSize = 13.sp, color = Color(0xFF334155))
             Text(text = "📞 No HP: ${pickup.nomorHp}", fontSize = 13.sp, color = Color(0xFF64748B))
+
+            // BADGE KONDISI REAL-TIME & URGENSI
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)) {
+                Surface(
+                    color = if (pickup.tingkatKepenuhan >= 85) Color(0xFFFEE2E2) else Color(0xFFFEF3C7),
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = "🗑️ Kepenuhan: ${pickup.tingkatKepenuhan}%",
+                        color = if (pickup.tingkatKepenuhan >= 85) Color(0xFFDC2626) else Color(0xFFD97706),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+                Surface(
+                    color = if (pickup.urgensiWarga.equals("DARURAT", ignoreCase = true)) Color(0xFFFEE2E2) else Color(0xFFE0F2FE),
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = "⚠️ ${pickup.urgensiWarga}",
+                        color = if (pickup.urgensiWarga.equals("DARURAT", ignoreCase = true)) Color(0xFFDC2626) else Color(0xFF0284C7),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+                Surface(
+                    color = Color(0xFFF1F5F9),
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = "📦 ${pickup.jenisWadah}",
+                        color = Color(0xFF475569),
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
 
             if (pickup.assignedKurirName.isNotBlank()) {
                 Text(text = "👤 Kurir Ditugaskan: ${pickup.assignedKurirName}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = PrimaryGreen)

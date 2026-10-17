@@ -157,6 +157,12 @@ class MainActivity : ComponentActivity() {
                     composable("admin_dashboard") {
                         AdminDashboardScreen(
                             viewModel = sampahViewModel,
+                            onSpkPriorityClick = {
+                                navController.navigate("spk_priority")
+                            },
+                            onTrackingClick = {
+                                navController.navigate("tracking_map/true")
+                            },
                             onLogoutClick = {
                                 authViewModel.logout()
                                 navController.navigate("login") {
@@ -183,6 +189,9 @@ class MainActivity : ComponentActivity() {
                             },
                             onBroadcastClick = {
                                 navController.navigate("broadcast")
+                            },
+                            onSpkPriorityClick = {
+                                navController.navigate("spk_priority")
                             },
                             onLogoutClick = {
                                 authViewModel.logout()
@@ -245,7 +254,7 @@ class MainActivity : ComponentActivity() {
                     composable("jemput_sampah") {
                         JemputSampahScreen(
                             viewModel = sampahViewModel,
-                            onAjukanClick = { jenis, berat, alamat, hp, catatan, lat, lng ->
+                            onAjukanClick = { jenis, berat, alamat, hp, catatan, lat, lng, kepenuhan, urgensi, kapasitas, wadah ->
                                 sampahViewModel.ajukanPenjemputan(
                                     jenisSampah = jenis,
                                     estimasiBeratKg = berat,
@@ -253,7 +262,11 @@ class MainActivity : ComponentActivity() {
                                     nomorHp = hp,
                                     catatan = catatan,
                                     latitude = lat,
-                                    longitude = lng
+                                    longitude = lng,
+                                    tingkatKepenuhan = kepenuhan,
+                                    urgensiWarga = urgensi,
+                                    kapasitasTempatSampahLiter = kapasitas,
+                                    jenisWadah = wadah
                                 )
                                 navController.navigate("riwayat_jemput") {
                                     popUpTo("jemput_sampah") { inclusive = true }
@@ -310,6 +323,26 @@ class MainActivity : ComponentActivity() {
                             userPickupLat = lat,
                             userPickupLng = lng,
                             userPickupAddress = addr,
+                            viewModel = sampahViewModel,
+                            onOpenSpkDashboard = {
+                                navController.navigate("spk_priority")
+                            },
+                            onBackClick = {
+                                navController.popBackStack()
+                            }
+                        )
+                    }
+
+                    // ====================================================
+                    // SISTEM PENDUKUNG KEPUTUSAN (SPK) PRIORITAS PENJEMPUTAN
+                    // ====================================================
+                    composable("spk_priority") {
+                        DecisionSupportScreen(
+                            viewModel = sampahViewModel,
+                            onNavigateToMapWithPickup = { _, lat, lng, addr ->
+                                val encodedAddr = Uri.encode(addr)
+                                navController.navigate("tracking_map/all?lat=$lat&lng=$lng&addr=$encodedAddr")
+                            },
                             onBackClick = {
                                 navController.popBackStack()
                             }

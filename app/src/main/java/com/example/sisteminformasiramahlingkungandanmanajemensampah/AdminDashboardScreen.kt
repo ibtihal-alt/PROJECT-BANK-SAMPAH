@@ -63,6 +63,8 @@ private val RedDangerBg = Color(0xFFFEE2E2)
 @Composable
 fun AdminDashboardScreen(
     viewModel: SampahViewModel,
+    onSpkPriorityClick: () -> Unit = {},
+    onTrackingClick: () -> Unit = {},
     onLogoutClick: () -> Unit = {}
 ) {
     val auth = remember { FirebaseAuth.getInstance() }
@@ -229,6 +231,37 @@ fun AdminDashboardScreen(
                                 color = BlueProcess
                             )
                         }
+                    }
+                }
+
+                // TOMBOL SPK PRIORITAS & PETA LIVE UNTUK KURIR
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 20.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Button(
+                        onClick = onSpkPriorityClick,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                        contentPadding = PaddingValues(vertical = 10.dp)
+                    ) {
+                        Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("SPK PRIORITAS", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+
+                    OutlinedButton(
+                        onClick = onTrackingClick,
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(vertical = 10.dp)
+                    ) {
+                        Icon(Icons.Default.Map, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("PETA ARMADA", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -454,6 +487,34 @@ private fun CommercialPickupCard(
 
             Text(text = "📍 Alamat: ${pickup.alamatLengkap}", fontSize = 13.sp, color = Color(0xFF334155))
             Text(text = "📞 No HP: ${pickup.nomorHp}", fontSize = 13.sp, color = Color(0xFF64748B))
+
+            // BADGE KONDISI REAL-TIME & URGENSI
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 4.dp, bottom = 4.dp)) {
+                Surface(
+                    color = if (pickup.tingkatKepenuhan >= 85) Color(0xFFFEE2E2) else Color(0xFFFEF3C7),
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = "🗑️ Kepenuhan: ${pickup.tingkatKepenuhan}%",
+                        color = if (pickup.tingkatKepenuhan >= 85) Color(0xFFDC2626) else Color(0xFFD97706),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+                Surface(
+                    color = if (pickup.urgensiWarga.equals("DARURAT", ignoreCase = true)) Color(0xFFFEE2E2) else Color(0xFFE0F2FE),
+                    shape = RoundedCornerShape(6.dp)
+                ) {
+                    Text(
+                        text = "⚠️ ${pickup.urgensiWarga}",
+                        color = if (pickup.urgensiWarga.equals("DARURAT", ignoreCase = true)) Color(0xFFDC2626) else Color(0xFF0284C7),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
 
             if (pickup.assignedKurirName.isNotBlank()) {
                 Text(text = "👤 Ditugaskan ke: ${pickup.assignedKurirName}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = PrimaryGreen)

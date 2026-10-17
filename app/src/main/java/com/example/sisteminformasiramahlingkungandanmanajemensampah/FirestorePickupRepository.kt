@@ -30,7 +30,11 @@ class FirestorePickupRepository {
                 "status" to pickup.status,
                 "latitude" to pickup.latitude,
                 "longitude" to pickup.longitude,
-                "createdAt" to pickup.tanggalJemput
+                "createdAt" to pickup.tanggalJemput,
+                "tingkatKepenuhan" to pickup.tingkatKepenuhan,
+                "urgensiWarga" to pickup.urgensiWarga,
+                "kapasitasTempatSampahLiter" to pickup.kapasitasTempatSampahLiter,
+                "jenisWadah" to pickup.jenisWadah
             )
 
             val docRef = pickupCollection().add(data).await()
