@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -22,6 +23,10 @@ import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.PickupT
 import java.text.NumberFormat
 import java.util.Locale
 
+private val BackgroundLight = Color(0xFFDCF0E0)
+private val ButterYellow = Color(0xFFF7CF68)
+private val ButterYellowDark = Color(0xFF2E2405)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RiwayatJemputScreen(
@@ -33,22 +38,32 @@ fun RiwayatJemputScreen(
     val daftarPickup by viewModel.semuaPenjemputan.collectAsState(initial = emptyList())
 
     Scaffold(
+        containerColor = BackgroundLight,
         topBar = {
             TopAppBar(
-                title = { Text("Pantau Penjemputan", fontWeight = FontWeight.Bold) },
+                title = { Text("Pantau Penjemputan", fontWeight = FontWeight.Bold, color = Color(0xFF0F172A)) },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Kembali")
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        shadowElevation = 2.dp,
+                        modifier = Modifier.padding(start = 12.dp).size(40.dp)
+                    ) {
+                        IconButton(onClick = onBackClick) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Kembali", tint = Color(0xFF0F172A))
+                        }
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundLight)
             )
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
                 onClick = onTambahJemputClick,
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Ajukan Jemput", fontWeight = FontWeight.Bold) },
-                containerColor = MaterialTheme.colorScheme.primary
+                icon = { Icon(Icons.Default.Add, contentDescription = null, tint = ButterYellowDark) },
+                text = { Text("Ajukan Jemput", fontWeight = FontWeight.Bold, color = ButterYellowDark) },
+                containerColor = ButterYellow,
+                shape = RoundedCornerShape(50.dp)
             )
         }
     ) { innerPadding ->
@@ -56,7 +71,7 @@ fun RiwayatJemputScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(Color(0xFFF8FAFC))
+                .background(BackgroundLight)
         ) {
             if (daftarPickup.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -101,12 +116,12 @@ private fun UserPickupStatusCard(pickup: PickupTransaction, onTrackClick: (Picku
     }
 
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(modifier = Modifier.padding(18.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -154,9 +169,15 @@ private fun UserPickupStatusCard(pickup: PickupTransaction, onTrackClick: (Picku
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(
                     onClick = { onTrackClick(pickup) },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7))
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(50.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ButterYellow,
+                        contentColor = ButterYellowDark
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                 ) {
                     Icon(imageVector = Icons.Default.MyLocation, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))

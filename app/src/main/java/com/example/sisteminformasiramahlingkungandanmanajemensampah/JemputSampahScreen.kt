@@ -49,11 +49,13 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
 import java.util.Locale
 
-// PALET WARNA KOMERSIAL (LIGHT THEME)
-private val PrimaryGreen = Color(0xFF006C4C)
-private val PrimaryGradient = Color(0xFF00A86B)
-private val BackgroundLight = Color(0xFFF8FAFC)
+// PALET WARNA CLAYMORPHIC PASTEL MINT & BUTTER YELLOW (SESUAI GAMBAR REFERENSI)
+private val PrimaryGreen = Color(0xFF2E7D32)
+private val PrimaryGradient = Color(0xFF5AB678)
+private val BackgroundLight = Color(0xFFDCF0E0) // Soft Pastel Mint Canvas
 private val CardBackground = Color(0xFFFFFFFF)
+private val ButterYellow = Color(0xFFF7CF68)
+private val ButterYellowDark = Color(0xFF2E2405)
 
 private val OrangePending = Color(0xFFD97706)
 private val OrangePendingBg = Color(0xFFFEF3C7)
@@ -147,13 +149,22 @@ fun JemputSampahScreen(
             TopAppBar(
                 title = { Text("Pengajuan Penjemputan", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Kembali")
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        shadowElevation = 2.dp,
+                        modifier = Modifier
+                            .padding(start = 12.dp)
+                            .size(38.dp)
+                    ) {
+                        IconButton(onClick = onBackClick) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Kembali", tint = Color(0xFF192A1E))
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = CardBackground,
-                    titleContentColor = Color(0xFF0F172A)
+                    containerColor = BackgroundLight,
+                    titleContentColor = Color(0xFF192A1E)
                 )
             )
         }
@@ -239,11 +250,11 @@ fun JemputSampahScreen(
 
                     Spacer(modifier = Modifier.height(16.dp))
 
-                    // KARTU FORM UTAMA
+                    // KARTU FORM UTAMA (BENTO CLAYMORPHIC WHITE)
                     Card(
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(26.dp),
                         colors = CardDefaults.cardColors(containerColor = CardBackground),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
@@ -573,7 +584,7 @@ fun JemputSampahScreen(
 
                             Spacer(modifier = Modifier.height(10.dp))
 
-                            // TOMBOL SUBMIT PENJEMPUTAN
+                            // TOMBOL SUBMIT PENJEMPUTAN (WARM BUTTER YELLOW PILL)
                             Button(
                                 onClick = {
                                     when {
@@ -602,11 +613,13 @@ fun JemputSampahScreen(
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(50.dp),
-                                shape = RoundedCornerShape(12.dp),
+                                    .height(54.dp),
+                                shape = RoundedCornerShape(50.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = PrimaryGreen
-                                )
+                                    containerColor = ButterYellow,
+                                    contentColor = ButterYellowDark
+                                ),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Send,
@@ -617,7 +630,8 @@ fun JemputSampahScreen(
                                 Text(
                                     text = "AJUKAN PENJEMPUTAN",
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
+                                    fontSize = 14.sp,
+                                    letterSpacing = 0.5.sp
                                 )
                             }
                         }
@@ -794,9 +808,13 @@ private fun MapPickerModal(
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(48.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF006C4C))
+                                .height(50.dp),
+                            shape = RoundedCornerShape(50.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ButterYellow,
+                                contentColor = ButterYellowDark
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                         ) {
                             Text("GUNAKAN TITIK LOKASI INI", fontWeight = FontWeight.Bold, fontSize = 13.sp)
                         }

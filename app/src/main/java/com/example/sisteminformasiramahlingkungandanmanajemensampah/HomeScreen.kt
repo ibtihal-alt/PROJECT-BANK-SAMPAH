@@ -26,11 +26,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// PALET WARNA KOMERSIAL PREMIUM
-private val PrimaryGreen = Color(0xFF006C4C)
-private val PrimaryGradient = Color(0xFF00A86B)
-private val BackgroundLight = Color(0xFFF8FAFC)
+// PALET WARNA CLAYMORPHIC PASTEL MINT & BUTTER YELLOW (SESUAI GAMBAR REFERENSI)
+private val PrimaryGreen = Color(0xFF2E7D32)
+private val PrimaryGradient = Color(0xFF5AB678)
+private val BackgroundLight = Color(0xFFDCF0E0) // Soft Pastel Mint Canvas
 private val CardBackground = Color(0xFFFFFFFF)
+private val ButterYellow = Color(0xFFF7CF68)
+private val ButterYellowText = Color(0xFF2E2405)
 
 @Composable
 fun HomeScreen(
@@ -198,12 +200,13 @@ fun HomeScreen(
                     onClick = onStartClick,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(54.dp),
-                    shape = RoundedCornerShape(16.dp),
+                        .height(56.dp),
+                    shape = RoundedCornerShape(50.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = PrimaryGreen
+                        containerColor = ButterYellow,
+                        contentColor = ButterYellowText
                     ),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -229,7 +232,7 @@ fun HomeScreen(
                 Text(
                     text = "SIRAM v2.0 • Green Earth Initiative",
                     fontSize = 11.sp,
-                    color = Color(0xFF94A3B8)
+                    color = Color(0xFF63786A)
                 )
             }
         }
@@ -245,7 +248,7 @@ private fun HomeMiniFeatureCard(
     subtitle: String
 ) {
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = modifier
@@ -294,7 +297,7 @@ private fun HomeMiniFeatureCardFull(
     subtitle: String
 ) {
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier.fillMaxWidth()

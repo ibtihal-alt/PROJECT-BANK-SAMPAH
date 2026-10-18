@@ -48,8 +48,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val PrimaryGreen = Color(0xFF006C4C)
+// PALET WARNA CLAYMORPHIC PASTEL MINT & BUTTER YELLOW (SESUAI GAMBAR REFERENSI)
+private val PrimaryGreen = Color(0xFF2E7D32)
+private val BackgroundLight = Color(0xFFDCF0E0)
 private val CardBackground = Color(0xFFFFFFFF)
+private val ButterYellow = Color(0xFFF7CF68)
+private val ButterYellowDark = Color(0xFF2E2405)
+private val PastelViolet = Color(0xFF8B5CF6) // Polyline rute GPS dari referensi Screen 4
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -297,30 +302,49 @@ fun TrackingMapScreen(
                         Text(
                             text = if (isAdminMode) "Navigasi Prioritas Armada" else "Lacak Posisi Kurir",
                             fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp
+                            fontSize = 16.sp,
+                            color = Color(0xFF192A1E)
                         )
                         Text(
                             text = "Adaptive Priority Routing System",
                             fontSize = 11.sp,
-                            color = Color(0xFF64748B)
+                            color = Color(0xFF4A6B54)
                         )
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        shadowElevation = 2.dp,
+                        modifier = Modifier
+                            .padding(start = 12.dp)
+                            .size(38.dp)
+                    ) {
+                        IconButton(onClick = onBackClick) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = Color(0xFF192A1E))
+                        }
                     }
                 },
                 actions = {
-                    IconButton(onClick = onOpenSpkDashboard) {
-                        Icon(
-                            imageVector = Icons.Default.Analytics,
-                            contentDescription = "Buka Dashboard SPK",
-                            tint = PrimaryGreen
-                        )
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        shadowElevation = 2.dp,
+                        modifier = Modifier
+                            .padding(end = 12.dp)
+                            .size(38.dp)
+                    ) {
+                        IconButton(onClick = onOpenSpkDashboard) {
+                            Icon(
+                                imageVector = Icons.Default.Analytics,
+                                contentDescription = "Buka Dashboard SPK",
+                                tint = PrimaryGreen
+                            )
+                        }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = CardBackground)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundLight)
             )
         }
     ) { innerPadding ->
@@ -460,27 +484,27 @@ fun TrackingMapScreen(
                                         modifier = Modifier
                                             .size((36 * pulseScale).dp)
                                             .clip(CircleShape)
-                                            .background(Color(0xFF3B82F6).copy(alpha = pulseAlpha * 0.6f))
+                                            .background(ButterYellow.copy(alpha = pulseAlpha * 0.6f))
                                     )
                                     Box(
                                         modifier = Modifier
-                                            .size(24.dp)
+                                            .size(28.dp)
                                             .clip(CircleShape)
                                             .background(Color.White),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Box(
                                             modifier = Modifier
-                                                .size(16.dp)
+                                                .size(20.dp)
                                                 .clip(CircleShape)
-                                                .background(Color(0xFF1D4ED8)),
+                                                .background(ButterYellow),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Icon(
                                                 Icons.Default.LocalShipping,
                                                 contentDescription = null,
-                                                tint = Color.White,
-                                                modifier = Modifier.size(10.dp)
+                                                tint = ButterYellowDark,
+                                                modifier = Modifier.size(12.dp)
                                             )
                                         }
                                     }
@@ -507,32 +531,55 @@ fun TrackingMapScreen(
                                 modifier = Modifier
                                     .size((36 * pulseScale).dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFF3B82F6).copy(alpha = pulseAlpha * 0.6f))
+                                    .background(ButterYellow.copy(alpha = pulseAlpha * 0.6f))
                             )
                             Box(
                                 modifier = Modifier
-                                    .size(24.dp)
+                                    .size(28.dp)
                                     .clip(CircleShape)
                                     .background(Color.White),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(16.dp)
+                                        .size(20.dp)
                                         .clip(CircleShape)
-                                        .background(Color(0xFF1D4ED8)),
+                                        .background(ButterYellow),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         Icons.Default.LocalShipping,
                                         contentDescription = null,
-                                        tint = Color.White,
-                                        modifier = Modifier.size(10.dp)
+                                        tint = ButterYellowDark,
+                                        modifier = Modifier.size(12.dp)
                                     )
                                 }
                             }
                         }
                     }
+                }
+
+                // 4. POLYLINES RUTE GPS BERWARNA VIOLET (PERSIS SCREEN 4 REFERENSI GAMBAR)
+                val routePoints = remember(courierLat, courierLng, rankedPickups, userPickupLat, userPickupLng) {
+                    val pts = mutableListOf(LatLng(courierLat, courierLng))
+                    if (userPickupLat != 0.0 && userPickupLng != 0.0) {
+                        pts.add(LatLng(userPickupLat, userPickupLng))
+                    } else if (rankedPickups.isNotEmpty()) {
+                        rankedPickups.take(5).forEach {
+                            pts.add(LatLng(it.pickup.latitude, it.pickup.longitude))
+                        }
+                    }
+                    pts
+                }
+                if (routePoints.size > 1) {
+                    Polyline(
+                        points = routePoints,
+                        color = PastelViolet,
+                        width = 12f,
+                        jointType = com.google.android.gms.maps.model.JointType.ROUND,
+                        startCap = com.google.android.gms.maps.model.RoundCap(),
+                        endCap = com.google.android.gms.maps.model.RoundCap()
+                    )
                 }
             }
 
@@ -675,8 +722,12 @@ fun TrackingMapScreen(
                                     }
                                 },
                                 modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)
+                                shape = RoundedCornerShape(50.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = ButterYellow,
+                                    contentColor = ButterYellowDark
+                                ),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                             ) {
                                 Icon(Icons.Default.Navigation, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(modifier = Modifier.width(6.dp))
@@ -795,8 +846,12 @@ fun TrackingMapScreen(
                                     }
                                 },
                                 modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(10.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
+                                shape = RoundedCornerShape(50.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = ButterYellow,
+                                    contentColor = ButterYellowDark
+                                ),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
                                 contentPadding = PaddingValues(vertical = 8.dp)
                             ) {
                                 Text("Fokus Titik Ini", fontSize = 11.sp, fontWeight = FontWeight.Bold)

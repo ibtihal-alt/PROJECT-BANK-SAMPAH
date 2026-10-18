@@ -44,8 +44,10 @@ import java.util.Locale
 
 private val PrimaryGreen = Color(0xFF006C4C)
 private val PrimaryGradient = Color(0xFF00A86B)
-private val BackgroundLight = Color(0xFFF8FAFC)
+private val BackgroundLight = Color(0xFFDCF0E0)
 private val CardBackground = Color(0xFFFFFFFF)
+private val ButterYellow = Color(0xFFF7CF68)
+private val ButterYellowDark = Color(0xFF2E2405)
 
 private val OrangePending = Color(0xFFD97706)
 private val OrangePendingBg = Color(0xFFFEF3C7)
@@ -243,9 +245,13 @@ fun AdminDashboardScreen(
                 ) {
                     Button(
                         onClick = onSpkPriorityClick,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                        modifier = Modifier.weight(1f).height(46.dp),
+                        shape = RoundedCornerShape(50.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ButterYellow,
+                            contentColor = ButterYellowDark
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
                         contentPadding = PaddingValues(vertical = 10.dp)
                     ) {
                         Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -255,8 +261,12 @@ fun AdminDashboardScreen(
 
                     OutlinedButton(
                         onClick = onTrackingClick,
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.weight(1f).height(46.dp),
+                        shape = RoundedCornerShape(50.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = Color.White,
+                            contentColor = Color(0xFF0F172A)
+                        ),
                         contentPadding = PaddingValues(vertical = 10.dp)
                     ) {
                         Icon(Icons.Default.Map, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -271,7 +281,7 @@ fun AdminDashboardScreen(
                     placeholder = { Text("Cari penjemputan, alamat, no hp...", fontSize = 13.sp) },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color(0xFF64748B)) },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(18.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = CardBackground,
                         unfocusedContainerColor = CardBackground,

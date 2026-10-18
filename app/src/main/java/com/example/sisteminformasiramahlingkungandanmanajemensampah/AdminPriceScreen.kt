@@ -28,7 +28,10 @@ import java.text.NumberFormat
 import java.util.Locale
 
 private val PrimaryGreen = Color(0xFF006C4C)
+private val BackgroundLight = Color(0xFFDCF0E0)
 private val CardBackground = Color(0xFFFFFFFF)
+private val ButterYellow = Color(0xFFF7CF68)
+private val ButterYellowDark = Color(0xFF2E2405)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -169,25 +172,40 @@ fun AdminPriceScreen(
     }
 
     Scaffold(
+        containerColor = BackgroundLight,
         topBar = {
             TopAppBar(
-                title = { Text("Kelola Tarif Harga Sampah", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
+                title = { Text("Kelola Tarif Harga Sampah", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF0F172A)) },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Kembali")
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        shadowElevation = 2.dp,
+                        modifier = Modifier.padding(start = 12.dp).size(40.dp)
+                    ) {
+                        IconButton(onClick = onBackClick) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Kembali", tint = Color(0xFF0F172A))
+                        }
                     }
                 },
                 actions = {
                     // Tombol Tambah Kategori Sampah Random/Baru di Pojok Kanan Atas
-                    IconButton(
-                        onClick = { showAddDialog = true }
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        shadowElevation = 2.dp,
+                        modifier = Modifier.padding(end = 12.dp).size(40.dp)
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "Tambah Sampah Baru", tint = MaterialTheme.colorScheme.onSurface)
+                        IconButton(
+                            onClick = { showAddDialog = true }
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Tambah Sampah Baru", tint = Color(0xFF0F172A))
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                    containerColor = BackgroundLight,
+                    titleContentColor = Color(0xFF0F172A)
                 )
             )
         }
@@ -196,7 +214,7 @@ fun AdminPriceScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
+                .background(BackgroundLight)
         ) {
             Column(
                 modifier = Modifier
@@ -213,25 +231,29 @@ fun AdminPriceScreen(
                             text = "Daftar Harga Beli per Kilogram",
                             fontWeight = FontWeight.Bold,
                             fontSize = 15.sp,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color = Color(0xFF0F172A)
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Atur harga jenis standar atau tambahkan kategori sampah random baru.",
                             fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = Color(0xFF64748B)
                         )
                     }
 
                     Button(
                         onClick = { showAddDialog = true },
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
-                        shape = RoundedCornerShape(10.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ButterYellow,
+                            contentColor = ButterYellowDark
+                        ),
+                        shape = RoundedCornerShape(50.dp),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                     ) {
                         Icon(imageVector = Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Tambah Baru", fontSize = 12.sp)
+                        Text("Tambah Baru", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -283,7 +305,7 @@ fun AdminPriceScreen(
                     ) {
                         items(daftarHarga, key = { it.jenisSampah }) { item ->
                             Card(
-                                shape = RoundedCornerShape(14.dp),
+                                shape = RoundedCornerShape(22.dp),
                                 colors = CardDefaults.cardColors(containerColor = CardBackground),
                                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                                 modifier = Modifier.fillMaxWidth()

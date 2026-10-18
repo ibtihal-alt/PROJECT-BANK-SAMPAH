@@ -13,29 +13,28 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val LightColorScheme = lightColorScheme(
+    primary = SiramButterYellow,
+    onPrimary = SiramButterYellowOn,
 
-    primary = SiramGreen,
-    onPrimary = Color.White,
+    primaryContainer = SiramButterYellowLight,
+    onPrimaryContainer = SiramButterYellowOn,
 
-    primaryContainer = SiramGreenLight,
-    onPrimaryContainer = SiramGreenDark,
-
-    secondary = SiramMint,
+    secondary = SiramGreen,
     onSecondary = Color.White,
 
-    secondaryContainer = Color(0xFFE0F2E3),
+    secondaryContainer = SiramGreenLight,
     onSecondaryContainer = SiramGreenDark,
 
-    tertiary = SiramLime,
-    onTertiary = SiramTextPrimary,
+    tertiary = SiramPastelCoral,
+    onTertiary = SiramPastelCoralOn,
 
-    background = SiramBackground,
+    background = SiramMintBackground,
     onBackground = SiramTextPrimary,
 
-    surface = SiramSurface,
+    surface = SiramSurfaceWhite,
     onSurface = SiramTextPrimary,
 
-    surfaceVariant = Color(0xFFE8ECE8),
+    surfaceVariant = SiramMintBackgroundLight,
     onSurfaceVariant = SiramTextSecondary,
 
     error = SiramError,

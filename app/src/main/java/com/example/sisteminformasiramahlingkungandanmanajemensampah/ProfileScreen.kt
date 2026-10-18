@@ -50,8 +50,10 @@ import java.io.File
 // PALET WARNA KOMERSIAL (LIGHT THEME)
 private val PrimaryGreen = Color(0xFF006C4C)
 private val PrimaryGradient = Color(0xFF00A86B)
-private val BackgroundLight = Color(0xFFF8FAFC)
+private val BackgroundLight = Color(0xFFDCF0E0)
 private val CardBackground = Color(0xFFFFFFFF)
+private val ButterYellow = Color(0xFFF7CF68)
+private val ButterYellowDark = Color(0xFF2E2405)
 
 private val RedDanger = Color(0xFFDC2626)
 private val RedDangerBg = Color(0xFFFEE2E2)
@@ -177,17 +179,25 @@ fun ProfileScreen(
     }
 
     Scaffold(
+        containerColor = BackgroundLight,
         topBar = {
             TopAppBar(
-                title = { Text("Profil Pengguna", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
+                title = { Text("Profil Pengguna", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF0F172A)) },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Kembali")
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        shadowElevation = 2.dp,
+                        modifier = Modifier.padding(start = 12.dp).size(40.dp)
+                    ) {
+                        IconButton(onClick = onBackClick) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Kembali", tint = Color(0xFF0F172A))
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    titleContentColor = MaterialTheme.colorScheme.onSurface
+                    containerColor = BackgroundLight,
+                    titleContentColor = Color(0xFF0F172A)
                 )
             )
         }
@@ -196,7 +206,7 @@ fun ProfileScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .background(MaterialTheme.colorScheme.background)
+                .background(BackgroundLight)
         ) {
             Column(
                 modifier = Modifier

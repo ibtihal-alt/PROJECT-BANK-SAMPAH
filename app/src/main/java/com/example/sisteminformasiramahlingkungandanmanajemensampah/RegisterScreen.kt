@@ -28,11 +28,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// PALET WARNA KOMERSIAL (LIGHT THEME)
-private val PrimaryGreen = Color(0xFF006C4C)
-private val PrimaryGradient = Color(0xFF00A86B)
-private val BackgroundLight = Color(0xFFF8FAFC)
+// PALET WARNA CLAYMORPHIC PASTEL MINT & BUTTER YELLOW (SESUAI GAMBAR REFERENSI)
+private val PrimaryGreen = Color(0xFF2E7D32)
+private val PrimaryGradient = Color(0xFF5AB678)
+private val BackgroundLight = Color(0xFFDCF0E0)
 private val CardBackground = Color(0xFFFFFFFF)
+private val ButterYellow = Color(0xFFF7CF68)
+private val ButterYellowDark = Color(0xFF2E2405)
 
 @Composable
 fun RegisterScreen(
@@ -127,7 +129,7 @@ fun RegisterScreen(
             // FORM REGISTRASI CONTAINER
             // =========================
             Card(
-                shape = RoundedCornerShape(20.dp),
+                shape = RoundedCornerShape(26.dp),
                 colors = CardDefaults.cardColors(containerColor = CardBackground),
                 elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                 modifier = Modifier.fillMaxWidth()
@@ -226,13 +228,16 @@ fun RegisterScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(50.dp),
+                            .height(54.dp),
                         enabled = authState !is AuthState.Loading,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(50.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = PrimaryGreen,
-                            disabledContainerColor = PrimaryGreen.copy(alpha = 0.5f)
-                        )
+                            containerColor = ButterYellow,
+                            contentColor = ButterYellowDark,
+                            disabledContainerColor = ButterYellow.copy(alpha = 0.5f),
+                            disabledContentColor = ButterYellowDark.copy(alpha = 0.5f)
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                     ) {
                         if (authState is AuthState.Loading) {
                             Row(

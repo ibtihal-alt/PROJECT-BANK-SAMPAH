@@ -74,11 +74,13 @@ import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.PickupT
 import java.text.NumberFormat
 import java.util.Locale
 
-// PALET WARNA THEME ELEGAN
-private val PrimaryGreen = Color(0xFF006C4C)
-private val PrimaryGradient = Color(0xFF00A86B)
-private val BackgroundLight = Color(0xFFF8FAFC)
+// PALET WARNA CLAYMORPHIC PASTEL MINT & BUTTER YELLOW (SESUAI GAMBAR REFERENSI)
+private val PrimaryGreen = Color(0xFF2E7D32)
+private val PrimaryGradient = Color(0xFF5AB678)
+private val BackgroundLight = Color(0xFFDCF0E0) // Soft Pastel Mint Canvas
 private val CardBackground = Color(0xFFFFFFFF)
+private val ButterYellow = Color(0xFFF7CF68)
+private val ButterYellowDark = Color(0xFF2E2405)
 
 @Composable
 fun DashboardScreen(
@@ -150,18 +152,12 @@ fun DashboardScreen(
                 .verticalScroll(scrollState)
         ) {
             // =========================
-            // HEADER BANNER GRADIENT ELEGAN
+            // HEADER PASTEL MINT DENGAN FLOATING PROFILE BUTTON (SESUAI GAMBAR REFERENSI)
             // =========================
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
-                    .background(
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(PrimaryGreen, PrimaryGradient)
-                        )
-                    )
-                    .padding(horizontal = 20.dp, vertical = 24.dp)
+                    .padding(horizontal = 20.dp, vertical = 20.dp)
             ) {
                 Column {
                     Row(
@@ -173,38 +169,44 @@ fun DashboardScreen(
                             Text(
                                 text = "Halo, Nasabah SIRAM 👋",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = Color.White.copy(alpha = 0.85f)
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color(0xFF4A6B54)
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = "Kelola Sampah Bersama",
                                 style = MaterialTheme.typography.headlineMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                fontWeight = FontWeight.Black,
+                                color = Color(0xFF192A1E)
                             )
                         }
 
-                        IconButton(
-                            onClick = onProfileClick,
-                            modifier = Modifier
-                                .size(42.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.2f))
+                        // TOMBOL PROFIL FLOATING BULAT PUTIH (PERSIS REFERENSI)
+                        Surface(
+                            shape = CircleShape,
+                            color = Color.White,
+                            shadowElevation = 3.dp,
+                            modifier = Modifier.size(46.dp)
                         ) {
-                            if (profilePhotoUri.isNotBlank()) {
-                                AsyncImage(
-                                    model = if (profilePhotoUri.startsWith("/")) File(profilePhotoUri) else Uri.parse(profilePhotoUri),
-                                    contentDescription = "Profil Saya",
-                                    contentScale = ContentScale.Crop,
-                                    modifier = Modifier.fillMaxSize().clip(CircleShape)
-                                )
-                            } else {
-                                Icon(
-                                    imageVector = Icons.Default.Person,
-                                    contentDescription = "Profil Saya",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(24.dp)
-                                )
+                            IconButton(
+                                onClick = onProfileClick,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                if (profilePhotoUri.isNotBlank()) {
+                                    AsyncImage(
+                                        model = if (profilePhotoUri.startsWith("/")) File(profilePhotoUri) else Uri.parse(profilePhotoUri),
+                                        contentDescription = "Profil Saya",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize().clip(CircleShape)
+                                    )
+                                } else {
+                                    Icon(
+                                        imageVector = Icons.Default.Person,
+                                        contentDescription = "Profil Saya",
+                                        tint = Color(0xFF192A1E),
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -261,17 +263,17 @@ fun DashboardScreen(
 
                     Spacer(modifier = Modifier.height(10.dp))
 
-                    // KARTU SALDO & WEIGHT RECAP
+                    // KARTU SALDO & WEIGHT RECAP (BENTO BOX WHITE CLAYMORPHIC)
                     Card(
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(26.dp),
                         colors = CardDefaults.cardColors(containerColor = CardBackground),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(18.dp)
+                                .padding(20.dp)
                         ) {
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -318,16 +320,20 @@ fun DashboardScreen(
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(14.dp))
+                            Spacer(modifier = Modifier.height(16.dp))
 
-                            // TOMBOL TARIK SALDO DI DALAM KARTU
+                            // TOMBOL TARIK SALDO BUTTER YELLOW PILL (SESUAI GAMBAR REFERENSI)
                             Button(
                                 onClick = onTarikSaldoClick,
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(44.dp),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)
+                                    .height(48.dp),
+                                shape = RoundedCornerShape(50.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = ButterYellow,
+                                    contentColor = ButterYellowDark
+                                ),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.AccountBalanceWallet,
@@ -338,7 +344,8 @@ fun DashboardScreen(
                                 Text(
                                     text = "TARIK SALDO / PENCAIRAN",
                                     fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp
+                                    fontSize = 12.sp,
+                                    letterSpacing = 0.5.sp
                                 )
                             }
                         }
@@ -540,7 +547,7 @@ private fun AktifPickupWidget(
     }
 
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier
@@ -605,7 +612,7 @@ private fun DashboardFeatureCard(
         modifier = modifier
             .fillMaxHeight()
             .clickable { onClick() },
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -671,7 +678,7 @@ private fun DashboardMenuCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
@@ -742,7 +749,7 @@ private fun DashboardActivityItem(
     }
 
     Card(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(22.dp),
         colors = CardDefaults.cardColors(containerColor = CardBackground),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         modifier = Modifier.fillMaxWidth()

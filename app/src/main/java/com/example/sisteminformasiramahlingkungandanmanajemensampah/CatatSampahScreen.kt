@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -34,8 +35,10 @@ import java.util.Locale
 
 private val PrimaryGreen = Color(0xFF006C4C)
 private val PrimaryGradient = Color(0xFF00A86B)
-private val BackgroundLight = Color(0xFFF8FAFC)
+private val BackgroundLight = Color(0xFFDCF0E0)
 private val CardBackground = Color(0xFFFFFFFF)
+private val ButterYellow = Color(0xFFF7CF68)
+private val ButterYellowDark = Color(0xFF2E2405)
 
 private val OrangePending = Color(0xFFD97706)
 private val OrangePendingBg = Color(0xFFFEF3C7)
@@ -75,16 +78,24 @@ fun CatatSampahScreen(
     }
 
     Scaffold(
+        containerColor = BackgroundLight,
         topBar = {
             TopAppBar(
-                title = { Text("Catat Sampah", fontWeight = FontWeight.Bold, fontSize = 18.sp) },
+                title = { Text("Catat Sampah", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = Color(0xFF0F172A)) },
                 navigationIcon = {
-                    IconButton(onClick = onSimpanClick) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Kembali")
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        shadowElevation = 2.dp,
+                        modifier = Modifier.padding(start = 12.dp).size(40.dp)
+                    ) {
+                        IconButton(onClick = onSimpanClick) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = "Kembali", tint = Color(0xFF0F172A))
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = CardBackground,
+                    containerColor = BackgroundLight,
                     titleContentColor = Color(0xFF0F172A)
                 )
             )
@@ -173,7 +184,7 @@ fun CatatSampahScreen(
 
                     // KARTU FORM UTAMA
                     Card(
-                        shape = RoundedCornerShape(20.dp),
+                        shape = RoundedCornerShape(26.dp),
                         colors = CardDefaults.cardColors(containerColor = CardBackground),
                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                         modifier = Modifier.fillMaxWidth()
@@ -368,11 +379,13 @@ fun CatatSampahScreen(
                                 },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(50.dp),
-                                shape = RoundedCornerShape(12.dp),
+                                    .height(54.dp),
+                                shape = RoundedCornerShape(50.dp),
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = PrimaryGreen
-                                )
+                                    containerColor = ButterYellow,
+                                    contentColor = ButterYellowDark
+                                ),
+                                elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Save,

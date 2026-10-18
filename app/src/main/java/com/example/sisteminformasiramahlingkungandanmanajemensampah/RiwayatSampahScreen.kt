@@ -33,8 +33,10 @@ import java.util.Locale
 // PALET WARNA KOMERSIAL (LIGHT THEME)
 private val PrimaryGreen = Color(0xFF006C4C)
 private val PrimaryGradient = Color(0xFF00A86B)
-private val BackgroundLight = Color(0xFFF8FAFC)
+private val BackgroundLight = Color(0xFFDCF0E0)
 private val CardBackground = Color(0xFFFFFFFF)
+private val ButterYellow = Color(0xFFF7CF68)
+private val ButterYellowDark = Color(0xFF2E2405)
 
 private val OrangePending = Color(0xFFD97706)
 private val OrangePendingBg = Color(0xFFFEF3C7)

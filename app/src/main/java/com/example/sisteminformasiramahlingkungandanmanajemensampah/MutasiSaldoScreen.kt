@@ -25,7 +25,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val BackgroundLight = Color(0xFFF8FAFC)
+private val BackgroundLight = Color(0xFFDCF0E0)
 private val CardBackground = Color(0xFFFFFFFF)
 private val GreenSuccess = Color(0xFF16A34A)
 private val GreenSuccessBg = Color(0xFFDCFCE7)
@@ -82,15 +82,23 @@ fun MutasiSaldoScreen(
     }
 
     Scaffold(
+        containerColor = BackgroundLight,
         topBar = {
             TopAppBar(
-                title = { Text("Mutasi Saldo & Rekening", fontWeight = FontWeight.Bold, fontSize = 16.sp) },
+                title = { Text("Mutasi Saldo & Rekening", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF0F172A)) },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        shadowElevation = 2.dp,
+                        modifier = Modifier.padding(start = 12.dp).size(40.dp)
+                    ) {
+                        IconButton(onClick = onBackClick) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = Color(0xFF0F172A))
+                        }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = CardBackground)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundLight)
             )
         }
     ) { innerPadding ->
@@ -116,7 +124,7 @@ fun MutasiSaldoScreen(
                 ) {
                     items(mutasiList, key = { it.id }) { item ->
                         Card(
-                            shape = RoundedCornerShape(14.dp),
+                            shape = RoundedCornerShape(22.dp),
                             colors = CardDefaults.cardColors(containerColor = CardBackground),
                             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                             modifier = Modifier.fillMaxWidth()

@@ -29,8 +29,10 @@ import java.util.Date
 import java.util.Locale
 
 private val PrimaryGreen = Color(0xFF006C4C)
-private val BackgroundLight = Color(0xFFF8FAFC)
+private val BackgroundLight = Color(0xFFDCF0E0)
 private val CardBackground = Color(0xFFFFFFFF)
+private val ButterYellow = Color(0xFFF7CF68)
+private val ButterYellowDark = Color(0xFF2E2405)
 private val RedDanger = Color(0xFFDC2626)
 
 data class BroadcastModel(
@@ -75,15 +77,23 @@ fun BroadcastScreen(
     val dateFormat = SimpleDateFormat("dd MMM yyyy • HH:mm", Locale("id", "ID"))
 
     Scaffold(
+        containerColor = BackgroundLight,
         topBar = {
             TopAppBar(
-                title = { Text("Broadcast Pengumuman Sistem", fontWeight = FontWeight.Bold, fontSize = 16.sp) },
+                title = { Text("Broadcast Pengumuman Sistem", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF0F172A)) },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        shadowElevation = 2.dp,
+                        modifier = Modifier.padding(start = 12.dp).size(40.dp)
+                    ) {
+                        IconButton(onClick = onBackClick) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = Color(0xFF0F172A))
+                        }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = CardBackground)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundLight)
             )
         }
     ) { innerPadding ->
@@ -97,7 +107,7 @@ fun BroadcastScreen(
         ) {
             item {
                 Card(
-                    shape = RoundedCornerShape(16.dp),
+                    shape = RoundedCornerShape(26.dp),
                     colors = CardDefaults.cardColors(containerColor = CardBackground),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -122,7 +132,7 @@ fun BroadcastScreen(
                             onValueChange = { judul = it },
                             label = { Text("Judul Pengumuman") },
                             singleLine = true,
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -131,7 +141,7 @@ fun BroadcastScreen(
                             onValueChange = { pesan = it },
                             label = { Text("Isi Pesan / Informasi Penting") },
                             minLines = 4,
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(16.dp),
                             modifier = Modifier.fillMaxWidth()
                         )
 
@@ -163,9 +173,13 @@ fun BroadcastScreen(
                             enabled = !isLoading,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(50.dp),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)
+                                .height(54.dp),
+                            shape = RoundedCornerShape(50.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ButterYellow,
+                                contentColor = ButterYellowDark
+                            ),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp)
                         ) {
                             if (isLoading) {
                                 CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
@@ -197,7 +211,7 @@ fun BroadcastScreen(
             } else {
                 items(broadcastList, key = { it.id }) { item ->
                     Card(
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(24.dp),
                         colors = CardDefaults.cardColors(containerColor = CardBackground),
                         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
                         modifier = Modifier.fillMaxWidth()

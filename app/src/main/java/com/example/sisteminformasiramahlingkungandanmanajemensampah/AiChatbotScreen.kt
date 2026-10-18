@@ -24,10 +24,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val PrimaryGreen = Color(0xFF006C4C)
-private val BackgroundLight = Color(0xFFF8FAFC)
+private val BackgroundLight = Color(0xFFDCF0E0)
 private val CardBackground = Color(0xFFFFFFFF)
-private val BotBubble = Color(0xFFE2E8F0)
-private val UserBubble = Color(0xFF006C4C)
+private val ButterYellow = Color(0xFFF7CF68)
+private val ButterYellowDark = Color(0xFF2E2405)
+private val BotBubble = Color(0xFFFFFFFF)
+private val UserBubble = Color(0xFFF7CF68)
 
 data class ChatMessage(
     val text: String,
@@ -141,11 +143,18 @@ fun AiChatbotScreen(
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        shadowElevation = 2.dp,
+                        modifier = Modifier.padding(start = 12.dp).size(40.dp)
+                    ) {
+                        IconButton(onClick = onBackClick) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = Color(0xFF0F172A))
+                        }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = CardBackground)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundLight)
             )
         }
     ) { innerPadding ->
@@ -171,19 +180,20 @@ fun AiChatbotScreen(
                     ) {
                         Surface(
                             shape = RoundedCornerShape(
-                                topStart = 16.dp,
-                                topEnd = 16.dp,
-                                bottomStart = if (message.isUser) 16.dp else 4.dp,
-                                bottomEnd = if (message.isUser) 4.dp else 16.dp
+                                topStart = 18.dp,
+                                topEnd = 18.dp,
+                                bottomStart = if (message.isUser) 18.dp else 4.dp,
+                                bottomEnd = if (message.isUser) 4.dp else 18.dp
                             ),
+                            shadowElevation = 1.dp,
                             color = if (message.isUser) UserBubble else BotBubble,
                             modifier = Modifier.widthIn(max = 280.dp)
                         ) {
                             Text(
                                 text = message.text,
                                 fontSize = 13.sp,
-                                color = if (message.isUser) Color.White else Color(0xFF1E293B),
-                                modifier = Modifier.padding(12.dp),
+                                color = if (message.isUser) ButterYellowDark else Color(0xFF1E293B),
+                                modifier = Modifier.padding(14.dp),
                                 lineHeight = 18.sp
                             )
                         }
@@ -268,12 +278,12 @@ fun AiChatbotScreen(
                         modifier = Modifier
                             .size(46.dp)
                             .clip(CircleShape)
-                            .background(if (inputMessage.isNotBlank()) PrimaryGreen else Color(0xFF94A3B8))
+                            .background(if (inputMessage.isNotBlank()) ButterYellow else Color(0xFFCBD5E1))
                     ) {
                         Icon(
                             imageVector = Icons.Default.Send,
                             contentDescription = "Kirim",
-                            tint = Color.White,
+                            tint = if (inputMessage.isNotBlank()) ButterYellowDark else Color.White,
                             modifier = Modifier.size(18.dp)
                         )
                     }

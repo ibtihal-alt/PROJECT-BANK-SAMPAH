@@ -43,10 +43,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 
-private val PrimaryGreen = Color(0xFF006C4C)
-private val PrimaryGradient = Color(0xFF00A86B)
-private val BackgroundLight = Color(0xFFF8FAFC)
+// PALET WARNA CLAYMORPHIC PASTEL MINT & BUTTER YELLOW (SESUAI GAMBAR REFERENSI)
+private val PrimaryGreen = Color(0xFF2E7D32)
+private val PrimaryGradient = Color(0xFF5AB678)
+private val BackgroundLight = Color(0xFFDCF0E0)
 private val CardBackground = Color(0xFFFFFFFF)
+private val ButterYellow = Color(0xFFF7CF68)
+private val ButterYellowDark = Color(0xFF2E2405)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -162,30 +165,48 @@ fun DecisionSupportScreen(
                             text = "SPK Prioritas Penjemputan",
                             fontWeight = FontWeight.Bold,
                             fontSize = 17.sp,
-                            color = Color(0xFF0F172A)
+                            color = Color(0xFF192A1E)
                         )
                         Text(
                             text = "Adaptive Context-Aware Priority Engine",
                             fontSize = 11.sp,
-                            color = Color(0xFF64748B)
+                            color = Color(0xFF4A6B54)
                         )
                     }
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        shadowElevation = 2.dp,
+                        modifier = Modifier
+                            .padding(start = 12.dp)
+                            .size(38.dp)
+                    ) {
+                        IconButton(onClick = onBackClick) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali", tint = Color(0xFF192A1E))
+                        }
                     }
                 },
                 actions = {
-                    IconButton(onClick = { showWeightsDialog = true }) {
-                        Icon(
-                            imageVector = Icons.Default.Tune,
-                            contentDescription = "Sesuaikan Bobot SPK",
-                            tint = PrimaryGreen
-                        )
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        shadowElevation = 2.dp,
+                        modifier = Modifier
+                            .padding(end = 12.dp)
+                            .size(38.dp)
+                    ) {
+                        IconButton(onClick = { showWeightsDialog = true }) {
+                            Icon(
+                                imageVector = Icons.Default.Tune,
+                                contentDescription = "Sesuaikan Bobot SPK",
+                                tint = PrimaryGreen
+                            )
+                        }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = CardBackground)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundLight)
             )
         }
     ) { innerPadding ->
@@ -648,7 +669,7 @@ private fun PriorityRankedItemCard(
 
     Surface(
         color = Color.White,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(24.dp),
         shadowElevation = 3.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -782,7 +803,7 @@ private fun PriorityRankedItemCard(
                 OutlinedButton(
                     onClick = onDetailClick,
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(50.dp),
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
                     Icon(Icons.Default.Analytics, contentDescription = null, modifier = Modifier.size(15.dp))
@@ -793,8 +814,12 @@ private fun PriorityRankedItemCard(
                 Button(
                     onClick = onNavigateClick,
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
+                    shape = RoundedCornerShape(50.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ButterYellow,
+                        contentColor = ButterYellowDark
+                    ),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
                     contentPadding = PaddingValues(vertical = 8.dp)
                 ) {
                     Icon(Icons.Default.Map, contentDescription = null, modifier = Modifier.size(15.dp))
@@ -804,7 +829,7 @@ private fun PriorityRankedItemCard(
 
                 FilledTonalButton(
                     onClick = onAssignClick,
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(50.dp),
                     contentPadding = PaddingValues(horizontal = 10.dp, vertical = 8.dp)
                 ) {
                     Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(15.dp))

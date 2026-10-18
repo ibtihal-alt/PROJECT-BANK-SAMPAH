@@ -51,11 +51,7 @@ fun WelcomeAnimationScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                brush = Brush.verticalGradient(
-                    colors = listOf(Color(0xFF0F172A), PrimaryGreen)
-                )
-            ),
+            .background(Color(0xFFDCF0E0)),
         contentAlignment = Alignment.Center
     ) {
         Column(
@@ -67,7 +63,7 @@ fun WelcomeAnimationScreen(
                     .size(110.dp)
                     .scale(scale.value)
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.15f)),
+                    .background(Color.White),
                 contentAlignment = Alignment.Center
             ) {
                 Box(
@@ -94,14 +90,14 @@ fun WelcomeAnimationScreen(
                 text = "SIRAM Enterprise",
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.White,
+                color = Color(0xFF0F172A),
                 letterSpacing = 1.sp
             )
 
             Text(
                 text = "Menyiapkan Ruang Kerja Anda...",
                 fontSize = 13.sp,
-                color = Color.White.copy(alpha = 0.8f)
+                color = Color(0xFF64748B)
             )
         }
     }
