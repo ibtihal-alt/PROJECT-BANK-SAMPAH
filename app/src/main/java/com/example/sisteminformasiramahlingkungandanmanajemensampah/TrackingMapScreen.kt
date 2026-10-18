@@ -44,7 +44,9 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.maps.android.compose.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val PrimaryGreen = Color(0xFF006C4C)
 private val CardBackground = Color(0xFFFFFFFF)
@@ -92,15 +94,16 @@ fun TrackingMapScreen(
     }
 
     // HITUNG SKOR PRIORITAS AWCP REAL-TIME BERDASARKAN POSISI GPS KURIR
-    val rankedPickups = remember(activePickups, courierLat, courierLng, criteriaWeights) {
-        if (activePickups.isNotEmpty()) {
+    // Rolling re-scoring O(n²): dihitung di luar main thread karena diulang tiap pembaruan GPS
+    val rankedPickups by produceState(emptyList<PriorityRankedItem>(), activePickups, courierLat, courierLng, criteriaWeights) {
+        value = withContext(Dispatchers.Default) {
             AdaptivePriorityEngine.rankPickups(
                 pickups = activePickups,
                 fleetLat = courierLat,
                 fleetLng = courierLng,
                 weights = criteriaWeights
             )
-        } else emptyList()
+        }
     }
 
     val cameraPositionState = rememberCameraPositionState {

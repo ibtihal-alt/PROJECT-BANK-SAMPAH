@@ -66,7 +66,8 @@ data class PriorityScoreBreakdown(
     val waitingHours: Double,              // Lama menunggu dalam jam
     val contextBoostApplied: Double,       // Skor tambahan kondisi darurat lingkungan
     val reasoningSummary: String,          // Penjelasan ilmiah kenapa titik ini didahulukan
-    val explanationDetails: List<String>   // Poin-poin faktor penentu
+    val explanationDetails: List<String>,  // Poin-poin faktor penentu
+    val appliedWeights: PriorityCriteriaWeights = PriorityCriteriaWeights() // Bobot hybrid entropi-adaptif yang dipakai
 )
 
 /**

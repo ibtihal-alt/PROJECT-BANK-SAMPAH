@@ -39,7 +39,9 @@ import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.Priorit
 import com.google.android.gms.location.LocationServices
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.withContext
 
 private val PrimaryGreen = Color(0xFF006C4C)
 private val PrimaryGradient = Color(0xFF00A86B)
@@ -121,7 +123,9 @@ fun DecisionSupportScreen(
     }
 
     // Hitung peringkat SPK AWCP
-    val rankedItems = remember(activePickups, fleetLat, fleetLng, fleetCapacityKg, currentPayloadKg, criteriaWeights, selectedSortMode) {
+    // Rolling re-scoring O(n²): dihitung di luar main thread
+    val rankedItems by produceState(emptyList<PriorityRankedItem>(), activePickups, fleetLat, fleetLng, fleetCapacityKg, currentPayloadKg, criteriaWeights, selectedSortMode) {
+        value = withContext(Dispatchers.Default) {
         val baseRanked = AdaptivePriorityEngine.rankPickups(
             pickups = activePickups,
             fleetLat = fleetLat,
@@ -132,13 +136,14 @@ fun DecisionSupportScreen(
         )
 
         when (selectedSortMode) {
-            "DISTANCE" -> baseRanked.sortedBy { it.breakdown.distanceKm }
+            "DISTANCE" -> baseRanked.sortedBy { AdaptivePriorityEngine.calculateDistanceKm(fleetLat, fleetLng, it.pickup.latitude, it.pickup.longitude) }
                 .mapIndexed { idx, itm -> itm.copy(rank = idx + 1) }
             "WAIT_TIME" -> baseRanked.sortedByDescending { it.breakdown.waitingHours }
                 .mapIndexed { idx, itm -> itm.copy(rank = idx + 1) }
             "FILL_LEVEL" -> baseRanked.sortedByDescending { it.pickup.tingkatKepenuhan }
                 .mapIndexed { idx, itm -> itm.copy(rank = idx + 1) }
             else -> baseRanked // SPK AWCP Score default
+        }
         }
     }
 
@@ -409,7 +414,7 @@ fun DecisionSupportScreen(
                     item {
                         val first = rankedItems[0]
                         val second = rankedItems[1]
-                        val explanation = AdaptivePriorityEngine.explainTradeoff(first, second)
+                        val explanation = AdaptivePriorityEngine.explainTradeoff(first, second, fleetLat, fleetLng)
                         Surface(
                             color = Color(0xFFEFF6FF),
                             shape = RoundedCornerShape(14.dp),
@@ -869,12 +874,12 @@ private fun AwcpScoreDetailDialog(
                 Spacer(modifier = Modifier.height(14.dp))
 
                 // PROGRESS BAR CRITERIA BREAKDOWN
-                CriteriaScoreRow(label = "Kepenuhan (${p.tingkatKepenuhan}%)", score = b.fillScore, weight = 0.25)
-                CriteriaScoreRow(label = "Waktu Tunggu (${String.format("%.1f", b.waitingHours)} jam)", score = b.waitScore, weight = 0.20)
-                CriteriaScoreRow(label = "Karakteristik Sampah (${p.jenisSampah})", score = b.wasteScore, weight = 0.15)
-                CriteriaScoreRow(label = "Urgensi Warga (${p.urgensiWarga})", score = b.urgencyScore, weight = 0.20)
-                CriteriaScoreRow(label = "Kedekatan Armada (${String.format("%.1f", b.distanceKm)} km)", score = b.proximityScore, weight = 0.10)
-                CriteriaScoreRow(label = "Kecocokan Muatan Armada", score = b.capacityScore, weight = 0.10)
+                CriteriaScoreRow(label = "Kepenuhan (${p.tingkatKepenuhan}%)", score = b.fillScore, weight = b.appliedWeights.weightFill)
+                CriteriaScoreRow(label = "Waktu Tunggu (${String.format("%.1f", b.waitingHours)} jam)", score = b.waitScore, weight = b.appliedWeights.weightWait)
+                CriteriaScoreRow(label = "Karakteristik Sampah (${p.jenisSampah})", score = b.wasteScore, weight = b.appliedWeights.weightWaste)
+                CriteriaScoreRow(label = "Urgensi Warga (${p.urgensiWarga})", score = b.urgencyScore, weight = b.appliedWeights.weightUrgency)
+                CriteriaScoreRow(label = "Kedekatan Rute (${String.format("%.1f", b.distanceKm)} km dari titik sebelumnya)", score = b.proximityScore, weight = b.appliedWeights.weightProximity)
+                CriteriaScoreRow(label = "Kecocokan Muatan Armada", score = b.capacityScore, weight = b.appliedWeights.weightCapacity)
 
                 if (b.contextBoostApplied > 0) {
                     Spacer(modifier = Modifier.height(8.dp))

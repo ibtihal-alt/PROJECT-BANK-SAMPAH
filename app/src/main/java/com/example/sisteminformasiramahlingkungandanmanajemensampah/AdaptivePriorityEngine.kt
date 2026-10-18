@@ -20,6 +20,16 @@ import kotlin.math.*
  *
  * Ditambah dengan Context-Aware Multipliers untuk pencegahan keterabaian (Anti-Starvation)
  * dan penanganan bahaya pencemaran lingkungan akut (Biohazard & Leachate Surge).
+ *
+ * Kontribusi metode (bukan sekadar integrasi):
+ * A. Hybrid Entropy-Adaptive Weighting: bobot pakar dicampur bobot Entropy Weight Method yang
+ *    dihitung ulang dari sebaran kondisi kandidat saat ini, sehingga kriteria yang paling
+ *    membedakan pada situasi real-time mendapat bobot lebih besar.
+ * B. Waste-Type Coupled Aging: skor waktu tunggu meluruh eksponensial dengan konstanta waktu
+ *    yang bergantung jenis sampah (organik/B3 "menua" lebih cepat daripada anorganik).
+ * C. Rolling Re-scoring Dispatch: urutan dibangun bertahap; setelah tiap titik dipilih, posisi
+ *    dan muatan armada virtual diperbarui lalu sisa kandidat dinilai ulang, sehingga kriteria
+ *    jarak & kapasitas mencerminkan kondisi armada pada saat titik itu benar-benar dijemput.
  */
 object AdaptivePriorityEngine {
 
@@ -59,6 +69,51 @@ object AdaptivePriorityEngine {
     }
 
     /**
+     * Konstanta waktu penuaan (jam): sampah mudah busuk/berbahaya mencapai ~63% skor tunggu dalam 12 jam,
+     * sampah campuran dalam 24 jam, anorganik stabil dalam 48 jam.
+     */
+    fun getAgingTimeConstantHours(wasteScore: Double): Double = when {
+        wasteScore >= 90.0 -> 12.0
+        wasteScore >= 75.0 -> 24.0
+        else -> 48.0
+    }
+
+    /**
+     * Hybrid Entropy-Adaptive Weighting.
+     * Entropy Weight Method: kriteria dengan sebaran nilai lebih beragam di antara kandidat saat ini
+     * membawa informasi pembeda lebih besar. Hasilnya dicampur dengan bobot pakar:
+     * w = α·w_pakar + (1 − α)·w_entropi.
+     */
+    fun adaptiveWeights(
+        candidates: List<PriorityScoreBreakdown>,
+        expert: PriorityCriteriaWeights,
+        alpha: Double = 0.5
+    ): PriorityCriteriaWeights {
+        if (candidates.size < 2) return expert
+        val criteria = listOf<(PriorityScoreBreakdown) -> Double>(
+            { it.fillScore }, { it.waitScore }, { it.wasteScore },
+            { it.urgencyScore }, { it.proximityScore }, { it.capacityScore }
+        )
+        // Divergensi d_j = 1 − e_j, dengan e_j = −(1/ln n)·Σ p_ij·ln p_ij
+        val divergence = criteria.map { criterion ->
+            val x = candidates.map { criterion(it) + 1e-9 }
+            val sum = x.sum()
+            1.0 + x.sumOf { val p = it / sum; p * ln(p) } / ln(candidates.size.toDouble())
+        }
+        val total = divergence.sum()
+        if (total < 1e-9) return expert // semua kandidat identik: tidak ada informasi pembeda
+        val e = divergence.map { it / total }
+        return PriorityCriteriaWeights(
+            weightFill = alpha * expert.weightFill + (1 - alpha) * e[0],
+            weightWait = alpha * expert.weightWait + (1 - alpha) * e[1],
+            weightWaste = alpha * expert.weightWaste + (1 - alpha) * e[2],
+            weightUrgency = alpha * expert.weightUrgency + (1 - alpha) * e[3],
+            weightProximity = alpha * expert.weightProximity + (1 - alpha) * e[4],
+            weightCapacity = alpha * expert.weightCapacity + (1 - alpha) * e[5]
+        )
+    }
+
+    /**
      * Menghitung skor urgensi laporan warga.
      */
     fun getCitizenUrgencyScore(urgensi: String): Double {
@@ -94,19 +149,19 @@ object AdaptivePriorityEngine {
             rawFill
         }
 
-        // 2. Kriteria Lama Waktu Menunggu (T)
-        val elapsedMs = (currentTimeMs - pickup.tanggalJemput).coerceAtLeast(0L)
-        val waitingHours = (elapsedMs.toDouble() / (1000.0 * 60.0 * 60.0)).coerceAtLeast(0.1)
-        val waitScore = (min(100.0, (waitingHours / 24.0) * 100.0)).also {
-            if (waitingHours >= 24.0) {
-                explanations.add("Permintaan telah tertunda ${String.format("%.1f", waitingHours)} jam (lebih dari 1 hari).")
-            }
-        }
-
-        // 3. Kriteria Jenis Sampah (W)
+        // 3. Kriteria Jenis Sampah (W) — dihitung lebih dulu karena memengaruhi laju penuaan (T)
         val wasteScore = getWasteTypeHazardScore(pickup.jenisSampah)
         if (wasteScore >= 90.0) {
             explanations.add("Kategori '${pickup.jenisSampah}' rentan pembusukan cepat, bau busuk, dan lalat.")
+        }
+
+        // 2. Kriteria Lama Waktu Menunggu (T): 100·(1 − e^(−t/τ)), τ = konstanta waktu per jenis sampah
+        val elapsedMs = (currentTimeMs - pickup.tanggalJemput).coerceAtLeast(0L)
+        val waitingHours = (elapsedMs.toDouble() / (1000.0 * 60.0 * 60.0)).coerceAtLeast(0.1)
+        val tauHours = getAgingTimeConstantHours(wasteScore)
+        val waitScore = 100.0 * (1.0 - exp(-waitingHours / tauHours))
+        if (waitingHours >= 24.0) {
+            explanations.add("Permintaan telah tertunda ${String.format("%.1f", waitingHours)} jam (lebih dari 1 hari).")
         }
 
         // 4. Kriteria Urgensi Warga (U)
@@ -194,13 +249,18 @@ object AdaptivePriorityEngine {
             waitingHours = waitingHours,
             contextBoostApplied = contextBoost,
             reasoningSummary = reasoningSummary,
-            explanationDetails = explanations
+            explanationDetails = explanations,
+            appliedWeights = weights
         )
     }
 
     /**
-     * Memproses dan mengurutkan daftar penjemputan berdasarkan AWCP Score (Ranking Tertinggi ke Terendah).
+     * Rolling Re-scoring Dispatch: menyusun urutan penjemputan secara bertahap.
+     * Tiap tahap: bobot entropi-adaptif dihitung dari kandidat tersisa, titik dengan AWCP tertinggi dipilih,
+     * lalu posisi armada pindah ke titik itu dan muatannya bertambah sebelum kandidat lain dinilai ulang.
+     * Akibatnya distanceKm pada hasil = jarak dari titik sebelumnya dalam rute (titik #1: dari armada).
      */
+    // shortcut: O(n²) penilaian ulang, cukup untuk ratusan titik aktif; ganti ke heap/indeks spasial jika ribuan
     fun rankPickups(
         pickups: List<PickupTransaction>,
         fleetLat: Double,
@@ -210,26 +270,31 @@ object AdaptivePriorityEngine {
         weights: PriorityCriteriaWeights = PriorityCriteriaWeights(),
         currentTimeMs: Long = System.currentTimeMillis()
     ): List<PriorityRankedItem> {
-        return pickups.map { pickup ->
-            val breakdown = calculateScore(
-                pickup = pickup,
-                fleetLat = fleetLat,
-                fleetLng = fleetLng,
-                fleetCapacityKg = fleetCapacityKg,
-                currentPayloadKg = currentPayloadKg,
-                weights = weights,
-                currentTimeMs = currentTimeMs
-            )
-            pickup to breakdown
-        }
-            .sortedByDescending { it.second.totalScore }
-            .mapIndexed { index, (pickup, breakdown) ->
-                PriorityRankedItem(
-                    pickup = pickup,
-                    breakdown = breakdown,
-                    rank = index + 1
-                )
+        val remaining = pickups.toMutableList()
+        val ranked = mutableListOf<PriorityRankedItem>()
+        var lat = fleetLat
+        var lng = fleetLng
+        var payload = currentPayloadKg
+
+        while (remaining.isNotEmpty()) {
+            val score = { p: PickupTransaction, w: PriorityCriteriaWeights ->
+                calculateScore(p, lat, lng, fleetCapacityKg, payload, w, currentTimeMs)
             }
+            val stepWeights = adaptiveWeights(remaining.map { score(it, weights) }, weights)
+            val scored = remaining.map { score(it, stepWeights) }
+            val bestIndex = scored.indices.maxBy { scored[it].totalScore }
+            val best = remaining.removeAt(bestIndex)
+            ranked += PriorityRankedItem(pickup = best, breakdown = scored[bestIndex], rank = ranked.size + 1)
+
+            if (best.latitude != 0.0 || best.longitude != 0.0) {
+                lat = best.latitude
+                lng = best.longitude
+            }
+            val beratMuatan = if (best.estimasiBeratKg > 0) best.estimasiBeratKg else 5.0
+            // shortcut: armada dianggap bongkar muat lalu lanjut dari titik yang sama; lokasi TPS belum dimodelkan
+            payload = if (payload + beratMuatan > fleetCapacityKg) beratMuatan else payload + beratMuatan
+        }
+        return ranked
     }
 
     /**
@@ -238,13 +303,16 @@ object AdaptivePriorityEngine {
      */
     fun explainTradeoff(
         higherItem: PriorityRankedItem,
-        lowerItem: PriorityRankedItem
+        lowerItem: PriorityRankedItem,
+        fleetLat: Double,
+        fleetLng: Double
     ): String {
         val a = higherItem
         val b = lowerItem
 
-        val distA = a.breakdown.distanceKm
-        val distB = b.breakdown.distanceKm
+        // Jarak langsung dari armada (breakdown.distanceKm adalah jarak antar-titik rute)
+        val distA = calculateDistanceKm(fleetLat, fleetLng, a.pickup.latitude, a.pickup.longitude)
+        val distB = calculateDistanceKm(fleetLat, fleetLng, b.pickup.latitude, b.pickup.longitude)
 
         return if (distA > distB) {
             val selisihJarak = distA - distB
