@@ -68,6 +68,8 @@ dependencies {
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("com.google.android.gms:play-services-maps:19.0.0")
     implementation("com.google.maps.android:maps-compose:6.1.0")
+    // Google Sign-In
+    implementation("com.google.android.gms:play-services-auth:21.3.0")
     // Coil untuk Image Loading dari Gallery URI
     implementation("io.coil-kt:coil-compose:2.7.0")
     // WorkManager untuk Offline Sync

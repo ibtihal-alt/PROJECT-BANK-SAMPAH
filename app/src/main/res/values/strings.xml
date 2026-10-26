@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">Sistem Informasi Ramah Lingkungan dan Manajemen Sampah</string>
+    <!-- Default Web Client ID untuk Google Sign-In via Firebase Auth -->
+    <string name="default_web_client_id">22813556115-siram.apps.googleusercontent.com</string>
 </resources>

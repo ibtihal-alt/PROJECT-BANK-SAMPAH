@@ -120,6 +120,45 @@ class AuthViewModel : ViewModel() {
     }
 
     // =========================
+    // LOGIN DENGAN GOOGLE
+    // =========================
+    fun loginWithGoogle(idToken: String) {
+        viewModelScope.launch {
+            _authState.value = AuthState.Loading
+
+            try {
+                val credential = com.google.firebase.auth.GoogleAuthProvider.getCredential(idToken, null)
+                val authResult = auth.signInWithCredential(credential).await()
+                val user = authResult.user
+                val uid = user?.uid ?: ""
+
+                if (uid.isNotEmpty()) {
+                    val userDoc = firestore.collection("users").document(uid).get().await()
+                    if (!userDoc.exists()) {
+                        val email = user?.email ?: ""
+                        val nama = user?.displayName ?: email.substringBefore("@")
+                        val userData = hashMapOf(
+                            "uid" to uid,
+                            "email" to email,
+                            "nama" to nama,
+                            "role" to "nasabah",
+                            "createdAt" to System.currentTimeMillis()
+                        )
+                        firestore.collection("users").document(uid).set(userData).await()
+                    }
+                }
+
+                _authState.value = AuthState.LoginSuccess
+
+            } catch (e: Exception) {
+                _authState.value = AuthState.Error(
+                    e.localizedMessage ?: "Login dengan Google gagal. Periksa konfigurasi Google Sign-In di Firebase."
+                )
+            }
+        }
+    }
+
+    // =========================
     // CEK ROLE USER AKTIF
     // =========================
     fun fetchUserRole(onResult: (String) -> Unit) {

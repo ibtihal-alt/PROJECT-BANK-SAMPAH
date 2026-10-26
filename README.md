@@ -80,6 +80,7 @@ $$\text{Priority Score} = \left( \sum_{i=1}^{n} w_i \cdot S_i \right) \times M_{
 ## ✨ Fitur Utama
 
 ### 👤 1. Portal Nasabah / Warga
+- **Login Langsung Akun Google (One-Tap / Google Sign-In)**: Masuk secara instan menggunakan akun Google resmi tanpa perlu mengisi form manual, terintegrasi langsung dengan Firebase Authentication dan sinkronisasi profil Firestore otomatis.
 - **Setor & Tabungan Sampah**: Input berat sampah per kategori (Plastik, Kertas, Logam, Kaca, Organik) dengan kalkulasi konversi rupiah dan poin otomatis.
 - **Request Jemput Sampah**: Pengajuan penjemputan langsung dari rumah lengkap dengan koordinat GPS, foto sampah, estimasi berat, dan catatan urgensi.
 - **Lacak Armada Real-Time**: Pemantauan posisi truk/motor pengangkut sampah secara langsung pada peta interaktif Google Maps.
