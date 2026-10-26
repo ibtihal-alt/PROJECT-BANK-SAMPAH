@@ -15,6 +15,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -45,6 +47,7 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.maps.android.compose.*
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -55,6 +58,25 @@ private val CardBackground = Color(0xFFFFFFFF)
 private val ButterYellow = Color(0xFFF7CF68)
 private val ButterYellowDark = Color(0xFF2E2405)
 private val PastelViolet = Color(0xFF8B5CF6) // Polyline rute GPS dari referensi Screen 4
+
+// Kurir dianggap online bila GPS terakhir masuk <= 5 menit lalu (siaran aktif mengirim tiap ~3 detik)
+internal const val COURIER_ONLINE_WINDOW_MS = 5 * 60 * 1000L
+
+internal fun isCourierOnline(courier: Map<String, Any>, now: Long): Boolean {
+    val ts = (courier["timestamp"] as? Number)?.toLong() ?: return false
+    return now - ts <= COURIER_ONLINE_WINDOW_MS
+}
+
+// onlineFilter: null = semua, true = online saja, false = offline saja
+internal fun filterCouriers(
+    couriers: List<Map<String, Any>>,
+    query: String,
+    onlineFilter: Boolean?,
+    now: Long
+): List<Map<String, Any>> = couriers.filter { c ->
+    (c["namaKurir"] as? String ?: "Kurir Lapangan").contains(query.trim(), ignoreCase = true) &&
+            (onlineFilter == null || isCourierOnline(c, now) == onlineFilter)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -170,6 +192,16 @@ fun TrackingMapScreen(
 
     // Multi-courier state for "all"
     var allCouriers by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var showCourierPanel by remember { mutableStateOf(false) }
+    var courierQuery by remember { mutableStateOf("") }
+    var onlineFilter by remember { mutableStateOf<Boolean?>(null) }
+    // Jam lokal agar status online/offline ikut berubah walau kurir tidak mengirim GPS baru
+    val now by produceState(System.currentTimeMillis()) {
+        while (true) {
+            delay(30_000)
+            value = System.currentTimeMillis()
+        }
+    }
     DisposableEffect(courierIdToTrack) {
         val listener = if (courierIdToTrack == "all") {
             firestore.collection("fleets")
@@ -466,6 +498,9 @@ fun TrackingMapScreen(
                         if (lat != -7.2575 && lng != 112.7521) {
                             val name = courier["namaKurir"] as? String ?: "Kurir Lapangan"
                             val courierState = rememberMarkerState(key = "courier_${courier["courierId"] ?: name}", position = LatLng(lat, lng))
+                            LaunchedEffect(lat, lng) {
+                                courierState.position = LatLng(lat, lng)
+                            }
                             MarkerComposable(
                                 state = courierState,
                                 title = name,
@@ -627,6 +662,146 @@ fun TrackingMapScreen(
                             fontSize = 11.sp,
                             color = PrimaryGreen
                         )
+                    }
+                }
+            }
+
+            // PANEL LIST KURIR (SUPERADMIN): CARI, FILTER ONLINE/OFFLINE, KLIK UNTUK MENGGESER KAMERA KE POSISI GPS KURIR
+            if (courierIdToTrack == "all") {
+                val onlineCount = allCouriers.count { isCourierOnline(it, now) }
+                val filteredCouriers = filterCouriers(allCouriers, courierQuery, onlineFilter, now)
+
+                Column(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 64.dp, start = 16.dp, end = 16.dp)
+                        .fillMaxWidth(),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Surface(
+                        onClick = { showCourierPanel = !showCourierPanel },
+                        color = Color.White,
+                        shape = RoundedCornerShape(50.dp),
+                        shadowElevation = 4.dp
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                if (showCourierPanel) Icons.Default.Close else Icons.Default.LocalShipping,
+                                contentDescription = null,
+                                tint = ButterYellowDark,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                text = "Daftar Kurir • $onlineCount/${allCouriers.size} online",
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                color = Color(0xFF0F172A)
+                            )
+                        }
+                    }
+
+                    if (showCourierPanel) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            color = Color.White,
+                            shape = RoundedCornerShape(20.dp),
+                            shadowElevation = 8.dp,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(12.dp)) {
+                                OutlinedTextField(
+                                    value = courierQuery,
+                                    onValueChange = { courierQuery = it },
+                                    placeholder = { Text("Cari nama kurir", fontSize = 12.sp) },
+                                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                                    singleLine = true,
+                                    shape = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+
+                                Row(
+                                    modifier = Modifier.padding(vertical = 6.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    listOf(null to "Semua", true to "Online", false to "Offline").forEach { (value, label) ->
+                                        FilterChip(
+                                            selected = onlineFilter == value,
+                                            onClick = { onlineFilter = value },
+                                            label = { Text(label, fontSize = 11.sp) }
+                                        )
+                                    }
+                                }
+
+                                if (filteredCouriers.isEmpty()) {
+                                    Text(
+                                        text = "Kurir tidak ditemukan",
+                                        fontSize = 12.sp,
+                                        color = Color(0xFF64748B),
+                                        modifier = Modifier.padding(8.dp)
+                                    )
+                                }
+
+                                LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
+                                    items(filteredCouriers, key = { it["courierId"]?.toString() ?: it.hashCode().toString() }) { courier ->
+                                        val name = courier["namaKurir"] as? String ?: "Kurir Lapangan"
+                                        val online = isCourierOnline(courier, now)
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .clickable {
+                                                    val lat = (courier["latitude"] as? Number)?.toDouble() ?: return@clickable
+                                                    val lng = (courier["longitude"] as? Number)?.toDouble() ?: return@clickable
+                                                    showCourierPanel = false
+                                                    selectedPickupRankedItem = null
+                                                    selectedCourierInfo = courier
+                                                    coroutineScope.launch {
+                                                        cameraPositionState.animate(
+                                                            CameraUpdateFactory.newLatLngZoom(LatLng(lat, lng), 17f),
+                                                            durationMs = 600
+                                                        )
+                                                    }
+                                                }
+                                                .padding(horizontal = 8.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(10.dp)
+                                                    .clip(CircleShape)
+                                                    .background(if (online) Color(0xFF16A34A) else Color(0xFF94A3B8))
+                                            )
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    text = name,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontSize = 13.sp,
+                                                    color = Color(0xFF0F172A),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = if (online) "Online" else "Offline",
+                                                    fontSize = 11.sp,
+                                                    color = if (online) Color(0xFF16A34A) else Color(0xFF64748B)
+                                                )
+                                            }
+                                            Icon(
+                                                Icons.Default.MyLocation,
+                                                contentDescription = "Lacak $name",
+                                                tint = PrimaryGreen,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -894,7 +1069,11 @@ fun TrackingMapScreen(
                                 }
                                 Column {
                                     Text(text = name, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                                    Text(text = "🟢 Status: Aktif Siar Live GPS", fontSize = 11.sp, color = Color(0xFF16A34A), fontWeight = FontWeight.SemiBold)
+                                    if (isCourierOnline(courier, now)) {
+                                        Text(text = "🟢 Status: Aktif Siar Live GPS", fontSize = 11.sp, color = Color(0xFF16A34A), fontWeight = FontWeight.SemiBold)
+                                    } else {
+                                        Text(text = "⚪ Status: Offline (posisi GPS terakhir)", fontSize = 11.sp, color = Color(0xFF64748B), fontWeight = FontWeight.SemiBold)
+                                    }
                                 }
                             }
                             IconButton(onClick = { selectedCourierInfo = null }) {
