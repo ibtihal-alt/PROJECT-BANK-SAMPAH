@@ -12,7 +12,20 @@
           "package_name": "com.example.sisteminformasiramahlingkungandanmanajemensampah"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "22813556115-fs265cfr6lq9cb4bmtmrqj6bpp7kvk9s.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.sisteminformasiramahlingkungandanmanajemensampah",
+            "certificate_hash": "2909a4f92471c2e3b65e28be4dc0ad84da673118"
+          }
+        },
+        {
+          "client_id": "22813556115-psbb91vhttfvqcanck0ecplbpub5osbm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDqOSo_LyacCY8OBm_gnMk_ADfxWHNFWW0"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "22813556115-psbb91vhttfvqcanck0ecplbpub5osbm.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }
