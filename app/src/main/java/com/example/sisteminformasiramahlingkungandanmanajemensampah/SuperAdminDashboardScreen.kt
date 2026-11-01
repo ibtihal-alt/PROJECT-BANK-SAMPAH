@@ -88,7 +88,10 @@ fun SuperAdminDashboardScreen(
 
     var activeModule by remember { mutableStateOf("home") }
 
-    LaunchedEffect(Unit) { viewModel.startSync(asStaff = true) }
+    LaunchedEffect(Unit) {
+        viewModel.startSync(asStaff = true)
+        viewModel.startAwcpSync(semuaKurir = true) // Super Admin menghitung & menyimpan AWCP semua kurir
+    }
 
     BackHandler(enabled = activeModule != "home") {
         activeModule = "home"
@@ -227,7 +230,7 @@ fun SuperAdminDashboardScreen(
         }
     }
 
-    Scaffold { innerPadding ->
+    Scaffold(contentWindowInsets = WindowInsets.navigationBars) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -271,13 +274,13 @@ fun SuperAdminDashboardScreen(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .statusBarsPadding()
                             .clip(RoundedCornerShape(bottomStart = 24.dp, bottomEnd = 24.dp))
                             .background(
                                 brush = Brush.horizontalGradient(
                                     colors = listOf(Color(0xFF0F172A), PrimaryGreen)
                                 )
                             )
+                            .statusBarsPadding()
                             .padding(start = 20.dp, end = 12.dp, top = 20.dp, bottom = 24.dp)
                     ) {
                         Row(
@@ -734,7 +737,7 @@ private fun PilihKurirDialog(
     onDismiss: () -> Unit,
     onKurirSelected: (kurirId: String, kurirName: String) -> Unit
 ) {
-    val kurirOnly = staffList.filter { (it["role"] as? String)?.lowercase() == "admin" || (it["role"] as? String)?.lowercase() == "super_admin" }
+    val kurirOnly = staffList.filter { (it["role"] as? String)?.lowercase() == "admin" }
 
     AlertDialog(
         onDismissRequest = onDismiss,

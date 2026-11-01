@@ -119,33 +119,13 @@ fun TrackingMapScreen(
     var selectedPickupRankedItem by remember { mutableStateOf<PriorityRankedItem?>(null) }
     var showPriorityLayers by remember { mutableStateOf(true) }
 
-    // DATA PENJEMPUTAN AKTIF DARI VIEWMODEL / REPOSITORY
-    val daftarPickupAdmin = if (viewModel != null) {
-        viewModel.semuaPenjemputanAdmin.collectAsState(initial = emptyList()).value
-    } else emptyList()
-
-    val criteriaWeights = if (viewModel != null) {
-        viewModel.criteriaWeights.collectAsState().value
-    } else com.example.sisteminformasiramahlingkungandanmanajemensampah.data.PriorityCriteriaWeights()
-
-    val activePickups = remember(daftarPickupAdmin) {
-        daftarPickupAdmin.filter {
-            !it.status.equals("SELESAI", ignoreCase = true) &&
-                    it.latitude != 0.0 && it.longitude != 0.0
-        }
-    }
-
-    // HITUNG SKOR PRIORITAS AWCP REAL-TIME BERDASARKAN POSISI GPS KURIR
-    // Rolling re-scoring O(n²): dihitung di luar main thread karena diulang tiap pembaruan GPS
-    val rankedPickups by produceState(emptyList<PriorityRankedItem>(), activePickups, courierLat, courierLng, criteriaWeights) {
-        value = withContext(Dispatchers.Default) {
-            AdaptivePriorityEngine.rankPickups(
-                pickups = activePickups,
-                fleetLat = courierLat,
-                fleetLng = courierLng,
-                weights = criteriaWeights
-            )
-        }
+    // TITIK SPK (AWCP Score tersimpan di Firestore) hanya untuk Super Admin (mode "all");
+    // kurir & nasabah tidak melihat unsur SPK di peta
+    val peringkatAwcp = viewModel?.peringkatAwcp?.collectAsState()?.value.orEmpty()
+    val rankedPickups = remember(peringkatAwcp, courierIdToTrack) {
+        if (courierIdToTrack != "all") emptyList()
+        else peringkatAwcp.filter { it.pickup.latitude != 0.0 && it.pickup.longitude != 0.0 }
+            .sortedByDescending { it.breakdown.totalScore }
     }
 
     val cameraPositionState = rememberCameraPositionState {
@@ -374,7 +354,7 @@ fun TrackingMapScreen(
                     }
                 },
                 actions = {
-                    Surface(
+                    if (courierIdToTrack == "all") Surface(
                         shape = CircleShape,
                         color = Color.White,
                         shadowElevation = 2.dp,
@@ -612,12 +592,9 @@ fun TrackingMapScreen(
                 // 4. POLYLINES RUTE GPS BERWARNA VIOLET (PERSIS SCREEN 4 REFERENSI GAMBAR)
                 val routePoints = remember(courierLat, courierLng, rankedPickups, userPickupLat, userPickupLng) {
                     val pts = mutableListOf(LatLng(courierLat, courierLng))
+                    // Garis rute per kurir dihapus: peringkat kini per kelompok kurir, garis gabungan tidak bermakna
                     if (userPickupLat != 0.0 && userPickupLng != 0.0) {
                         pts.add(LatLng(userPickupLat, userPickupLng))
-                    } else if (rankedPickups.isNotEmpty()) {
-                        rankedPickups.take(5).forEach {
-                            pts.add(LatLng(it.pickup.latitude, it.pickup.longitude))
-                        }
                     }
                     pts
                 }

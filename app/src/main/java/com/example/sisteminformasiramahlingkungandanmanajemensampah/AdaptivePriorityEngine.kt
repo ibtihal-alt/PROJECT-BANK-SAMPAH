@@ -297,6 +297,45 @@ object AdaptivePriorityEngine {
         return ranked
     }
 
+    const val DEFAULT_LAT = -7.4029 // Ngawi: dipakai bila tidak ada GPS kurir
+    const val DEFAULT_LNG = 111.4452
+
+    /** Hanya permintaan yang masih perlu dijemput yang dinilai (bukan MENUNGGU_VERIFIKASI/SELESAI/DITOLAK). */
+    fun isAktif(p: PickupTransaction): Boolean =
+        p.status.equals("MENUNGGU", ignoreCase = true) || p.status.equals("DIPROSES", ignoreCase = true)
+
+    /** Kelompok rute: tugas DIPROSES milik satu kurir, atau "" untuk yang belum ditugaskan. */
+    fun kelompokKurir(p: PickupTransaction): String =
+        if (p.status.equals("DIPROSES", ignoreCase = true)) p.assignedKurirId else ""
+
+    /**
+     * Peringkat AWCP per kurir. Tiap kelompok dinilai dengan rankPickups dari posisi GPS kurirnya
+     * (posisi terakhir walau offline). Kelompok belum ditugaskan dinilai dari kurir online yang paling
+     * dekat ke titik tengah kelompok itu; tanpa kurir online dipakai titik default.
+     */
+    fun rankPerKurir(
+        pickups: List<PickupTransaction>,
+        posisiKurir: Map<String, Pair<Double, Double>>,
+        kurirOnline: Set<String>,
+        weights: PriorityCriteriaWeights,
+        fleetCapacityKg: Double,
+        currentTimeMs: Long = System.currentTimeMillis()
+    ): List<PriorityRankedItem> =
+        pickups.filter(::isAktif).groupBy(::kelompokKurir).flatMap { (kurirId, group) ->
+            val origin = if (kurirId.isNotEmpty()) {
+                posisiKurir[kurirId] ?: (DEFAULT_LAT to DEFAULT_LNG)
+            } else {
+                val berGps = group.filter { it.latitude != 0.0 || it.longitude != 0.0 }
+                val cLat = berGps.map { it.latitude }.average().takeIf { !it.isNaN() } ?: DEFAULT_LAT
+                val cLng = berGps.map { it.longitude }.average().takeIf { !it.isNaN() } ?: DEFAULT_LNG
+                posisiKurir.filterKeys { it in kurirOnline }.values
+                    .minByOrNull { calculateDistanceKm(cLat, cLng, it.first, it.second) }
+                    ?: (DEFAULT_LAT to DEFAULT_LNG)
+            }
+            rankPickups(group, origin.first, origin.second, fleetCapacityKg, 0.0, weights, currentTimeMs)
+                .map { it.copy(kurirId = kurirId, originLat = origin.first, originLng = origin.second, computedAt = currentTimeMs) }
+        }
+
     /**
      * Menghasilkan narasi perbandingan cerdas antara dua titik penjemputan:
      * Menjelaskan MENGAPA Titik A didahulukan dari Titik B meskipun Titik B mungkin lebih dekat lokasinya.

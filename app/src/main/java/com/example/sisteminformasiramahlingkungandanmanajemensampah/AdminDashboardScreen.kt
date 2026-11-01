@@ -37,6 +37,7 @@ import com.google.android.gms.tasks.CancellationTokenSource
 import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.PickupTransaction
+import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.PriorityRankedItem
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
@@ -65,7 +66,6 @@ private val RedDangerBg = Color(0xFFFEE2E2)
 @Composable
 fun AdminDashboardScreen(
     viewModel: SampahViewModel,
-    onSpkPriorityClick: () -> Unit = {},
     onTrackingClick: () -> Unit = {},
     onLogoutClick: () -> Unit = {}
 ) {
@@ -144,6 +144,18 @@ fun AdminDashboardScreen(
                     pickup.nomorHp.contains(searchQuery, ignoreCase = true)
             isForThisKurir && matchesTab && matchesSearch
         }
+    }
+
+    // REKOMENDASI PENJEMPUTAN: tugas DIPROSES milik kurir ini diurutkan dengan AWCP Score tersimpan
+    // (Adaptive Context-Aware Waste Collection Priority System) — angka sama dengan halaman SPK Super Admin
+    LaunchedEffect(Unit) { viewModel.startAwcpSync(semuaKurir = false) }
+    val semuaPeringkat by viewModel.peringkatAwcp.collectAsState()
+    val peringkat = remember(semuaPeringkat, currentKurirUid) {
+        semuaPeringkat.filter { it.kurirId == currentKurirUid && it.pickup.assignedKurirId == currentKurirUid }
+            .associateBy { it.pickup.id }
+    }
+    val tampilList = remember(filteredPickupList, peringkat) {
+        filteredPickupList.sortedBy { peringkat[it.id]?.rank ?: Int.MAX_VALUE }
     }
 
     val currencyFormat = remember { NumberFormat.getCurrencyInstance(Locale("id", "ID")) }
@@ -238,29 +250,13 @@ fun AdminDashboardScreen(
                     }
                 }
 
-                // TOMBOL SPK PRIORITAS & PETA LIVE UNTUK KURIR
+                // TOMBOL PETA LIVE UNTUK KURIR
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp, vertical = 2.dp),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Button(
-                        onClick = onSpkPriorityClick,
-                        modifier = Modifier.weight(1f).height(46.dp),
-                        shape = RoundedCornerShape(50.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = ButterYellow,
-                            contentColor = ButterYellowDark
-                        ),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
-                        contentPadding = PaddingValues(vertical = 10.dp)
-                    ) {
-                        Icon(Icons.Default.Bolt, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("SPK PRIORITAS", fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
-
                     OutlinedButton(
                         onClick = onTrackingClick,
                         modifier = Modifier.weight(1f).height(46.dp),
@@ -352,9 +348,10 @@ fun AdminDashboardScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            items(filteredPickupList, key = { it.id }) { pickup ->
+                            items(tampilList, key = { it.id }) { pickup ->
                                 CommercialPickupCard(
                                     pickup = pickup,
+                                    ranked = peringkat[pickup.id],
                                     onUpdateStatus = { item, statusBaru ->
                                         if (statusBaru == "SELESAI") {
                                             selectedPickupForSelesai = item
@@ -453,6 +450,7 @@ private fun ProfessionalMetricCard(
 @Composable
 private fun CommercialPickupCard(
     pickup: PickupTransaction,
+    ranked: PriorityRankedItem? = null,
     onUpdateStatus: (item: PickupTransaction, statusBaru: String) -> Unit
 ) {
     val context = LocalContext.current
@@ -470,6 +468,22 @@ private fun CommercialPickupCard(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
+            if (ranked != null) {
+                val tier = ranked.breakdown.tier
+                Surface(
+                    color = Color(tier.containerColorHex),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.padding(bottom = 10.dp)
+                ) {
+                    Text(
+                        text = "#${ranked.rank} • Skor ${String.format(Locale.US, "%.1f", ranked.breakdown.totalScore)} • ${tier.label}",
+                        color = Color(tier.badgeColorHex),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,

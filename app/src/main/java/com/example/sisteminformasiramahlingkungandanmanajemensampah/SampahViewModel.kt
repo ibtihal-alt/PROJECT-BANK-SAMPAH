@@ -19,15 +19,28 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.PriorityCriteriaWeights
+import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.PriorityRankedItem
+import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.SpkConfig
+import com.google.firebase.firestore.DocumentSnapshot
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SampahViewModel(
     private val sampahDao: SampahDao,
@@ -94,20 +107,115 @@ class SampahViewModel(
 
     override fun onCleared() {
         syncRegistrations.forEach { it.remove() }
+        awcpRegistrations.forEach { it.remove() }
     }
 
     // ====================================================
     // SISTEM PENDUKUNG KEPUTUSAN (SPK) PRIORITAS PENJEMPUTAN
     // ====================================================
-    private val _criteriaWeights = MutableStateFlow(PriorityCriteriaWeights())
-    val criteriaWeights: StateFlow<PriorityCriteriaWeights> = _criteriaWeights.asStateFlow()
+    // Pengaturan & hasil AWCP disimpan di Firestore agar Super Admin dan kurir melihat angka yang sama
+    private val awcpRepository = AwcpRepository()
+    private val _spkConfig = MutableStateFlow<SpkConfig?>(null) // null = belum terbaca dari Firestore
+    val spkConfig: StateFlow<SpkConfig> = _spkConfig.map { it ?: SpkConfig() }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, SpkConfig())
+    val criteriaWeights: StateFlow<PriorityCriteriaWeights> = spkConfig.map { it.weights }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, PriorityCriteriaWeights())
 
-    fun updateCriteriaWeights(newWeights: PriorityCriteriaWeights) {
-        _criteriaWeights.value = newWeights
+    private val _awcpDocs = MutableStateFlow<Map<String, DocumentSnapshot>>(emptyMap())
+    private val awcpRegistrations = mutableListOf<ListenerRegistration>()
+    private var awcpKey = ""
+    private var awcpJob: Job? = null
+    private var awcpSemuaKurir = false
+
+    /** Penjemputan aktif yang sudah punya skor AWCP tersimpan, urut per kelompok kurir lalu peringkat. */
+    val peringkatAwcp: StateFlow<List<PriorityRankedItem>> =
+        combine(pickupDao.getAllPickupForAdmin(), _awcpDocs) { pickups, docs ->
+            pickups.filter { AdaptivePriorityEngine.isAktif(it) }
+                .mapNotNull { p -> docs[p.firebaseId]?.let { AwcpRepository.fromDoc(it, p) } }
+                .sortedWith(compareBy({ it.kurirId.isNotEmpty() }, { it.pickup.assignedKurirName }, { it.rank }))
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /**
+     * semuaKurir = true (Super Admin): menghitung & menyimpan skor semua kelompok.
+     * false (kurir): hanya tugas DIPROSES miliknya. Dihitung ulang otomatis saat data penjemputan atau
+     * pengaturan SPK berubah (bukan saat GPS bergerak, agar hemat kuota Firestore).
+     */
+    @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
+    fun startAwcpSync(semuaKurir: Boolean) {
+        val uid = getUserId()
+        val key = "$uid:$semuaKurir"
+        if (uid.isBlank() || key == awcpKey) return
+        awcpKey = key
+        awcpSemuaKurir = semuaKurir
+        awcpRegistrations.forEach { it.remove() }
+        awcpRegistrations.clear()
+        awcpRegistrations += awcpRepository.listenConfig { _spkConfig.value = it }
+        awcpRegistrations += awcpRepository.listenScores(if (semuaKurir) null else uid) { _awcpDocs.value = it }
+
+        awcpJob?.cancel()
+        awcpJob = viewModelScope.launch {
+            combine(pickupDao.getAllPickupForAdmin(), _spkConfig.filterNotNull()) { pickups, config ->
+                inputAwcp(pickups, semuaKurir, uid) to config
+            }
+                .distinctUntilChanged()
+                .debounce(1500)
+                .collectLatest { (pickups, config) -> hitungDanSimpanAwcp(pickups, config, semuaKurir, uid) }
+        }
     }
 
-    fun resetCriteriaWeights() {
-        _criteriaWeights.value = PriorityCriteriaWeights()
+    private fun inputAwcp(pickups: List<PickupTransaction>, semuaKurir: Boolean, uid: String) =
+        pickups.filter {
+            it.firebaseId.isNotBlank() && AdaptivePriorityEngine.isAktif(it) &&
+                    (semuaKurir || AdaptivePriorityEngine.kelompokKurir(it) == uid)
+        }
+
+    /** Tombol "Hitung Ulang" di halaman SPK Super Admin. */
+    fun hitungUlangAwcp(onSelesai: (Boolean) -> Unit = {}) {
+        val uid = getUserId()
+        val config = _spkConfig.value ?: SpkConfig()
+        viewModelScope.launch {
+            val pickups = inputAwcp(pickupDao.getAllPickupForAdmin().first(), awcpSemuaKurir, uid)
+            onSelesai(hitungDanSimpanAwcp(pickups, config, awcpSemuaKurir, uid))
+        }
+    }
+
+    private suspend fun hitungDanSimpanAwcp(
+        pickups: List<PickupTransaction>,
+        config: SpkConfig,
+        semuaKurir: Boolean,
+        uid: String
+    ): Boolean {
+        if (getUserId() != uid) return false // akun sudah berganti (logout/login lain)
+        return try {
+            val armada = awcpRepository.ambilArmada()
+            val now = System.currentTimeMillis()
+            val posisi = armada.mapNotNull { a ->
+                val lat = (a["latitude"] as? Number)?.toDouble() ?: return@mapNotNull null
+                val lng = (a["longitude"] as? Number)?.toDouble() ?: return@mapNotNull null
+                (a["courierId"] as String) to (lat to lng)
+            }.toMap()
+            val online = armada.filter { isCourierOnline(it, now) }.map { it["courierId"] as String }.toSet()
+            val hasil = withContext(Dispatchers.Default) {
+                AdaptivePriorityEngine.rankPerKurir(pickups, posisi, online, config.weights, config.fleetCapacityKg, now)
+            }
+            // Hanya Super Admin yang membersihkan skor penjemputan yang sudah tidak aktif
+            val hapus = if (semuaKurir) _awcpDocs.value.keys - hasil.map { it.pickup.firebaseId }.toSet() else emptySet()
+            awcpRepository.simpanScores(hasil, hapus)
+            true
+        } catch (e: Exception) {
+            Log.e("SIRAM_SPK", "Gagal menghitung/menyimpan AWCP Score", e)
+            false
+        }
+    }
+
+    fun updateSpkConfig(config: SpkConfig) {
+        viewModelScope.launch {
+            try {
+                awcpRepository.simpanConfig(config)
+            } catch (e: Exception) {
+                Log.e("SIRAM_SPK", "Gagal menyimpan pengaturan SPK", e)
+            }
+        }
     }
 
     // =========================

@@ -72,9 +72,22 @@ data class PriorityScoreBreakdown(
 
 /**
  * Item penjemputan terurut dengan breakdown hasil DSS.
+ * rank berlaku di dalam kelompok kurirId ("" = belum ditugaskan); origin = posisi awal armada kelompok itu.
  */
 data class PriorityRankedItem(
     val pickup: PickupTransaction,
     val breakdown: PriorityScoreBreakdown,
-    val rank: Int
+    val rank: Int,
+    val kurirId: String = "",
+    val originLat: Double = 0.0,
+    val originLng: Double = 0.0,
+    val computedAt: Long = 0L
+)
+
+/**
+ * Pengaturan SPK bersama (Firestore spk_config/global), diubah hanya oleh Super Admin.
+ */
+data class SpkConfig(
+    val weights: PriorityCriteriaWeights = PriorityCriteriaWeights(),
+    val fleetCapacityKg: Double = 500.0
 )

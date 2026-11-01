@@ -157,9 +157,6 @@ class MainActivity : ComponentActivity() {
                     composable("admin_dashboard") {
                         AdminDashboardScreen(
                             viewModel = sampahViewModel,
-                            onSpkPriorityClick = {
-                                navController.navigate("spk_priority")
-                            },
                             onTrackingClick = {
                                 navController.navigate("tracking_map/true")
                             },

@@ -31,17 +31,20 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.core.content.ContextCompat
+import android.widget.Toast
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
 import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.PickupTransaction
 import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.PriorityCriteriaWeights
 import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.PriorityRankedItem
 import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.PriorityTier
-import com.google.android.gms.location.LocationServices
+import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.SpkConfig
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.tasks.await
-import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 // PALET WARNA CLAYMORPHIC PASTEL MINT & BUTTER YELLOW (SESUAI GAMBAR REFERENSI)
 private val PrimaryGreen = Color(0xFF2E7D32)
@@ -62,13 +65,10 @@ fun DecisionSupportScreen(
     val firestore = remember { FirebaseFirestore.getInstance() }
     val auth = remember { FirebaseAuth.getInstance() }
 
-    val daftarPickupAdmin by viewModel.semuaPenjemputanAdmin.collectAsState(initial = emptyList())
-    val criteriaWeights by viewModel.criteriaWeights.collectAsState()
+    val spkConfig by viewModel.spkConfig.collectAsState()
+    val peringkatTersimpan by viewModel.peringkatAwcp.collectAsState()
+    var sedangHitung by remember { mutableStateOf(false) }
 
-    var fleetLat by remember { mutableStateOf(-7.4029) } // Default Ngawi
-    var fleetLng by remember { mutableStateOf(111.4452) }
-    var fleetCapacityKg by remember { mutableStateOf(500.0) }
-    var currentPayloadKg by remember { mutableStateOf(120.0) }
     var selectedSortMode by remember { mutableStateOf("SPK") } // SPK, DISTANCE, WAIT_TIME, FILL_LEVEL
     var showWeightsDialog by remember { mutableStateOf(false) }
     var selectedItemForDetail by remember { mutableStateOf<PriorityRankedItem?>(null) }
@@ -83,7 +83,7 @@ fun DecisionSupportScreen(
             val list = mutableListOf<Map<String, Any>>()
             for (doc in usersSnap.documents) {
                 val role = doc.getString("role") ?: "user"
-                if (role.equals("admin", ignoreCase = true) || role.equals("super_admin", ignoreCase = true)) {
+                if (role.equals("admin", ignoreCase = true)) { // hanya kurir yang bisa ditugaskan
                     val m = doc.data?.toMutableMap() ?: mutableMapOf()
                     m["uid"] = doc.id
                     list.add(m)
@@ -95,60 +95,20 @@ fun DecisionSupportScreen(
         }
     }
 
-    // Ambil lokasi GPS real-time armada kurir / admin saat ini
-    val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
-    LaunchedEffect(Unit) {
-        val hasPermission = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED || ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_COARSE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-
-        if (hasPermission) {
-            try {
-                fusedLocationClient.lastLocation.addOnSuccessListener { loc ->
-                    if (loc != null) {
-                        fleetLat = loc.latitude
-                        fleetLng = loc.longitude
-                    }
-                }
-            } catch (e: SecurityException) {
-                // ignore
-            }
-        }
-    }
-
-    // Ambil data penjemputan yang masih butuh tindakan (MENUNGGU atau DIPROSES)
-    val activePickups = remember(daftarPickupAdmin) {
-        daftarPickupAdmin.filter { !it.status.equals("SELESAI", ignoreCase = true) }
-    }
-
-    // Hitung peringkat SPK AWCP
-    // Rolling re-scoring O(n²): dihitung di luar main thread
-    val rankedItems by produceState(emptyList<PriorityRankedItem>(), activePickups, fleetLat, fleetLng, fleetCapacityKg, currentPayloadKg, criteriaWeights, selectedSortMode) {
-        value = withContext(Dispatchers.Default) {
-        val baseRanked = AdaptivePriorityEngine.rankPickups(
-            pickups = activePickups,
-            fleetLat = fleetLat,
-            fleetLng = fleetLng,
-            fleetCapacityKg = fleetCapacityKg,
-            currentPayloadKg = currentPayloadKg,
-            weights = criteriaWeights
-        )
-
+    // Peringkat AWCP dibaca dari Firestore (awcp_scores), dihitung per kurir dari GPS kurir masing-masing.
+    // Mode urut lain hanya untuk perbandingan tampilan, tidak disimpan.
+    val rankedItems = remember(peringkatTersimpan, selectedSortMode) {
         when (selectedSortMode) {
-            "DISTANCE" -> baseRanked.sortedBy { AdaptivePriorityEngine.calculateDistanceKm(fleetLat, fleetLng, it.pickup.latitude, it.pickup.longitude) }
+            "DISTANCE" -> peringkatTersimpan.sortedBy { AdaptivePriorityEngine.calculateDistanceKm(it.originLat, it.originLng, it.pickup.latitude, it.pickup.longitude) }
                 .mapIndexed { idx, itm -> itm.copy(rank = idx + 1) }
-            "WAIT_TIME" -> baseRanked.sortedByDescending { it.breakdown.waitingHours }
+            "WAIT_TIME" -> peringkatTersimpan.sortedByDescending { it.breakdown.waitingHours }
                 .mapIndexed { idx, itm -> itm.copy(rank = idx + 1) }
-            "FILL_LEVEL" -> baseRanked.sortedByDescending { it.pickup.tingkatKepenuhan }
+            "FILL_LEVEL" -> peringkatTersimpan.sortedByDescending { it.pickup.tingkatKepenuhan }
                 .mapIndexed { idx, itm -> itm.copy(rank = idx + 1) }
-            else -> baseRanked // SPK AWCP Score default
-        }
+            else -> peringkatTersimpan // SPK AWCP Score default: per kurir, urut peringkat
         }
     }
+    val terakhirDihitung = remember(peringkatTersimpan) { peringkatTersimpan.maxOfOrNull { it.computedAt } ?: 0L }
 
     val criticalCount = remember(rankedItems) { rankedItems.count { it.breakdown.tier == PriorityTier.CRITICAL } }
     val highCount = remember(rankedItems) { rankedItems.count { it.breakdown.tier == PriorityTier.HIGH } }
@@ -341,33 +301,42 @@ fun DecisionSupportScreen(
                                     Icon(Icons.Default.LocalShipping, contentDescription = null, tint = PrimaryGreen, modifier = Modifier.size(18.dp))
                                     Text("Status Armada Lapangan:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF0F172A))
                                 }
-                                Surface(
-                                    color = Color(0xFFDCFCE7),
-                                    shape = RoundedCornerShape(6.dp)
+                                FilledTonalButton(
+                                    onClick = {
+                                        sedangHitung = true
+                                        viewModel.hitungUlangAwcp { ok ->
+                                            sedangHitung = false
+                                            Toast.makeText(context, if (ok) "Skor AWCP diperbarui" else "Gagal menghitung ulang, cek koneksi", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    enabled = !sedangHitung,
+                                    shape = RoundedCornerShape(10.dp),
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)
                                 ) {
-                                    Text(
-                                        text = "🟢 GPS Aktif",
-                                        color = Color(0xFF15803D),
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
+                                    Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(if (sedangHitung) "Menghitung…" else "Hitung Ulang", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
 
                             Spacer(modifier = Modifier.height(8.dp))
 
+                            Text(
+                                text = "📍 Jarak dihitung dari GPS kurir yang ditugaskan (belum ditugaskan: kurir online terdekat)",
+                                fontSize = 11.sp,
+                                color = Color(0xFF64748B)
+                            )
                             Row(
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth().padding(top = 2.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
                                 Text(
-                                    text = "📍 Posisi: ${String.format("%.4f", fleetLat)}, ${String.format("%.4f", fleetLng)}",
+                                    text = "🕒 Dihitung: " + if (terakhirDihitung > 0) SimpleDateFormat("dd MMM HH:mm", Locale("id", "ID")).format(Date(terakhirDihitung)) else "-",
                                     fontSize = 11.sp,
                                     color = Color(0xFF64748B)
                                 )
                                 Text(
-                                    text = "📦 Sisa Kapasitas: ${(fleetCapacityKg - currentPayloadKg).toInt()} / ${fleetCapacityKg.toInt()} Kg",
+                                    text = "📦 Kapasitas Armada: ${spkConfig.fleetCapacityKg.toInt()} Kg",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = Color(0xFF334155)
@@ -431,11 +400,12 @@ fun DecisionSupportScreen(
                 }
 
                 // NOTICE TRADE-OFF JIKA SPK DIPILIH
-                if (selectedSortMode == "SPK" && rankedItems.size >= 2) {
+                // Dibandingkan #1 dan #2 dalam rute kurir yang sama
+                val first = rankedItems.firstOrNull { it.rank == 1 }
+                val second = first?.let { f -> rankedItems.firstOrNull { it.rank == 2 && it.kurirId == f.kurirId } }
+                if (selectedSortMode == "SPK" && first != null && second != null) {
                     item {
-                        val first = rankedItems[0]
-                        val second = rankedItems[1]
-                        val explanation = AdaptivePriorityEngine.explainTradeoff(first, second, fleetLat, fleetLng)
+                        val explanation = AdaptivePriorityEngine.explainTradeoff(first, second, first.originLat, first.originLng)
                         Surface(
                             color = Color(0xFFEFF6FF),
                             shape = RoundedCornerShape(14.dp),
@@ -516,13 +486,14 @@ fun DecisionSupportScreen(
     // MODAL DIALOG PENYESUAIAN BOBOT KRITERIA (SUPER ADMIN / DISPATCHER)
     if (showWeightsDialog) {
         WeightsConfigDialog(
-            currentWeights = criteriaWeights,
-            onSave = { newWeights ->
-                viewModel.updateCriteriaWeights(newWeights)
+            currentWeights = spkConfig.weights,
+            currentCapacityKg = spkConfig.fleetCapacityKg,
+            onSave = { newWeights, kapasitas ->
+                viewModel.updateSpkConfig(SpkConfig(newWeights, kapasitas))
                 showWeightsDialog = false
             },
             onReset = {
-                viewModel.resetCriteriaWeights()
+                viewModel.updateSpkConfig(SpkConfig())
                 showWeightsDialog = false
             },
             onDismiss = { showWeightsDialog = false }
@@ -743,6 +714,13 @@ private fun PriorityRankedItemCard(
                 color = Color(0xFF0F172A),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = if (item.kurirId.isNotEmpty()) "👤 Rute kurir: ${p.assignedKurirName}" else "⏳ Belum ditugaskan",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (item.kurirId.isNotEmpty()) PrimaryGreen else Color(0xFFD97706),
+                modifier = Modifier.padding(top = 2.dp)
             )
 
             Spacer(modifier = Modifier.height(6.dp))
@@ -985,10 +963,13 @@ private fun CriteriaScoreRow(label: String, score: Double, weight: Double) {
 @Composable
 private fun WeightsConfigDialog(
     currentWeights: PriorityCriteriaWeights,
-    onSave: (PriorityCriteriaWeights) -> Unit,
+    currentCapacityKg: Double,
+    onSave: (PriorityCriteriaWeights, Double) -> Unit,
     onReset: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    var kapasitasText by remember { mutableStateOf(currentCapacityKg.toInt().toString()) }
+    val kapasitas = kapasitasText.toDoubleOrNull()?.takeIf { it > 0 }
     var wFill by remember { mutableStateOf(currentWeights.weightFill.toFloat()) }
     var wWait by remember { mutableStateOf(currentWeights.weightWait.toFloat()) }
     var wWaste by remember { mutableStateOf(currentWeights.weightWaste.toFloat()) }
@@ -1023,6 +1004,23 @@ private fun WeightsConfigDialog(
                 WeightSliderItem(label = "Kedekatan Jarak Armada", value = wProx, onValueChange = { wProx = it })
                 WeightSliderItem(label = "Kapasitas Muatan Kendaraan", value = wCap, onValueChange = { wCap = it })
 
+                Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = kapasitasText,
+                    onValueChange = { kapasitasText = it.filter(Char::isDigit).take(5) },
+                    label = { Text("Kapasitas kendaraan armada (Kg)", fontSize = 11.sp) },
+                    isError = kapasitas == null,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Text(
+                    text = "Disimpan ke database & berlaku untuk semua kurir.",
+                    fontSize = 10.sp,
+                    color = Color(0xFF64748B),
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+
                 Spacer(modifier = Modifier.height(14.dp))
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -1046,8 +1044,9 @@ private fun WeightsConfigDialog(
                                 weightProximity = (wProx / total).toDouble(),
                                 weightCapacity = (wCap / total).toDouble()
                             )
-                            onSave(normalized)
+                            onSave(normalized, kapasitas ?: currentCapacityKg)
                         },
+                        enabled = kapasitas != null,
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(10.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)

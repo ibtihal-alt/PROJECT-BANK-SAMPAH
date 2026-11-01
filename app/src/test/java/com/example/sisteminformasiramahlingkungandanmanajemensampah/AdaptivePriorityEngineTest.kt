@@ -67,4 +67,28 @@ class AdaptivePriorityEngineTest {
         val ranked = AdaptivePriorityEngine.rankPickups(listOf(nextToFleet, nextToCritical, critical), fleetLat, fleetLng, currentTimeMs = now)
         assertEquals(listOf(1, 2, 3), ranked.map { it.pickup.id })
     }
+
+    @Test
+    fun rankPerKurirGroupsByCourierAndSkipsInactive() {
+        val a1 = pickup(1, -7.41, "Organik", 95, "DARURAT", 10).copy(status = "DIPROSES", assignedKurirId = "A")
+        val a2 = pickup(2, -7.42, "Plastik", 40, "RENDAH", 1).copy(status = "DIPROSES", assignedKurirId = "A")
+        val b1 = pickup(3, -7.50, "Kertas", 60, "SEDANG", 2).copy(status = "DIPROSES", assignedKurirId = "B")
+        val baru = pickup(4, -7.45, "Plastik", 50, "SEDANG", 1) // MENUNGGU
+        val verifikasi = pickup(5, -7.45, "Plastik", 50, "SEDANG", 1).copy(status = "MENUNGGU_VERIFIKASI")
+
+        val posisi = mapOf("A" to (fleetLat to fleetLng), "B" to (-7.50 to fleetLng))
+        val hasil = AdaptivePriorityEngine.rankPerKurir(
+            listOf(a1, a2, b1, baru, verifikasi), posisi, kurirOnline = setOf("B"),
+            weights = PriorityCriteriaWeights(), fleetCapacityKg = 500.0, currentTimeMs = now
+        )
+
+        assertEquals(setOf(1, 2, 3, 4), hasil.map { it.pickup.id }.toSet())
+        val byId = hasil.associateBy { it.pickup.id }
+        assertEquals(listOf(1, 2), listOf(byId[1]!!.rank, byId[2]!!.rank))
+        assertEquals("A" to 1, byId[1]!!.kurirId to byId[1]!!.rank)
+        assertEquals("B" to 1, byId[3]!!.kurirId to byId[3]!!.rank)
+        // Belum ditugaskan: dinilai dari satu-satunya kurir online (B)
+        assertEquals("" to 1, byId[4]!!.kurirId to byId[4]!!.rank)
+        assertEquals(-7.50, byId[4]!!.originLat, 1e-9)
+    }
 }
