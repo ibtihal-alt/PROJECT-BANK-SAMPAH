@@ -27,6 +27,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -40,6 +41,9 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -165,6 +169,7 @@ fun SuperAdminDashboardScreen(
     val listStatusSampah = listOf("MENUNGGU", "DISETUJUI", "DITOLAK", "SEMUA")
     val listStatusPenarikan = listOf("MENUNGGU", "SUKSES", "DITOLAK", "SEMUA")
     val currencyFormat = remember { NumberFormat.getCurrencyInstance(Locale("id", "ID")) }
+    val rupiahFormat = remember { NumberFormat.getCurrencyInstance(Locale("id", "ID")).apply { maximumFractionDigits = 0 } }
 
     val totalTonaseSelesai = remember(daftarPickupAdmin) {
         daftarPickupAdmin.filter { it.status.equals("SELESAI", ignoreCase = true) }
@@ -262,7 +267,7 @@ fun SuperAdminDashboardScreen(
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundLight)
                     )
                 } else {
-                    // HEADER BANNER SUPER ADMIN (Kompak seperti sebelumnya)
+                    // HEADER BANNER SUPER ADMIN
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -273,110 +278,97 @@ fun SuperAdminDashboardScreen(
                                     colors = listOf(Color(0xFF0F172A), PrimaryGreen)
                                 )
                             )
-                            .padding(horizontal = 20.dp, vertical = 14.dp)
+                            .padding(start = 20.dp, end = 12.dp, top = 20.dp, bottom = 24.dp)
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Surface(
-                                    color = Color.White.copy(alpha = 0.15f),
-                                    shape = RoundedCornerShape(50.dp)
-                                ) {
-                                    Text(
-                                        text = "🔒 Super Admin",
-                                        fontSize = 9.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.White,
-                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                                    )
-                                }
+                            Column(
+                                modifier = Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
                                 Text(
-                                    text = "Enterprise Command Center",
-                                    style = MaterialTheme.typography.titleMedium,
+                                    text = "Super Admin",
+                                    style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold,
-                                    color = Color.White
+                                    color = Color.White,
+                                    modifier = Modifier.semantics { heading() }
                                 )
                                 Text(
-                                    text = "Pusat Kendali Operasional & Analitik Terpusat",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    fontSize = 11.sp,
+                                    text = "Pusat kendali operasional SIRAM",
+                                    style = MaterialTheme.typography.bodyMedium,
                                     color = Color.White.copy(alpha = 0.85f)
                                 )
                             }
 
-                            IconButton(
-                                onClick = onLogoutClick,
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.2f))
-                            ) {
-                                Icon(Icons.Default.Logout, contentDescription = "Logout", tint = Color.White, modifier = Modifier.size(16.dp))
+                            IconButton(onClick = onLogoutClick) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.18f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Logout, contentDescription = "Keluar", tint = Color.White, modifier = Modifier.size(20.dp))
+                                }
                             }
                         }
                     }
                 }
 
                 if (activeModule == "home") {
+                    val antreanJemput = daftarPickupAdmin.count {
+                        it.status.equals("MENUNGGU", ignoreCase = true) || it.status.equals("MENUNGGU_VERIFIKASI", ignoreCase = true)
+                    }
+                    val antreanSetor = daftarSampahAdmin.count { !it.isDeleted && it.status.equals("MENUNGGU", ignoreCase = true) }
+                    val antreanPencairan = daftarPenarikanAdmin.count { it.status.equals("MENUNGGU", ignoreCase = true) }
+
                     LazyColumn(
-                        contentPadding = PaddingValues(top = 10.dp, bottom = 28.dp),
+                        contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 32.dp),
+                        verticalArrangement = Arrangement.spacedBy(24.dp),
                         modifier = Modifier.fillMaxSize()
                     ) {
                         item {
-                            Card(
-                                shape = RoundedCornerShape(20.dp),
-                                colors = CardDefaults.cardColors(containerColor = CardBackground),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 20.dp, vertical = 6.dp)
-                            ) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(16.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                        Text("Total Tonase Daur Ulang", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFF64748B))
-                                        Text(
-                                            text = String.format("%.1f Kg", totalTonaseSelesai),
-                                            fontSize = 18.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = PrimaryGreen
-                                        )
-                                    }
-                                    VerticalDivider(modifier = Modifier.height(36.dp), color = Color(0xFFE2E8F0))
-                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                        Text("Total Saldo Tervalidasi", fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFF64748B))
-                                        Text(
-                                            text = currencyFormat.format(totalNominalSelesai),
-                                            fontSize = 18.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = BlueProcess
-                                        )
+                            RingkasanCard(
+                                totalTonaseKg = totalTonaseSelesai,
+                                totalSaldo = rupiahFormat.format(totalNominalSelesai),
+                                onStatistikClick = { activeModule = "statistik" }
+                            )
+                        }
+
+                        item {
+                            HomeSection(title = "Perlu Tindakan") {
+                                Surface(color = CardBackground, shape = RoundedCornerShape(20.dp)) {
+                                    Column {
+                                        TindakanRow(Icons.Default.LocalShipping, "Validasi Penjemputan", antreanJemput) { activeModule = "jemput" }
+                                        HorizontalDivider(color = Color(0xFFF1F5F9), modifier = Modifier.padding(start = 72.dp))
+                                        TindakanRow(Icons.Default.AssignmentTurnedIn, "Validasi Setor Mandiri", antreanSetor) { activeModule = "catat" }
+                                        HorizontalDivider(color = Color(0xFFF1F5F9), modifier = Modifier.padding(start = 72.dp))
+                                        TindakanRow(Icons.Default.AccountBalanceWallet, "Validasi Pencairan Saldo", antreanPencairan) { activeModule = "pencairan" }
                                     }
                                 }
                             }
                         }
 
                         item {
-                            SuperAdminControlCenterGrid(
-                                onJemputClick = { activeModule = "jemput" },
-                                onCatatClick = { activeModule = "catat" },
-                                onPencairanClick = { activeModule = "pencairan" },
-                                onStatistikClick = { activeModule = "statistik" },
-                                onTimClick = { activeModule = "tim" },
-                                onTrackingClick = onTrackingClick,
-                                onPriceClick = onPriceManagerClick,
-                                onBroadcastClick = onBroadcastClick,
-                                onAddKurirClick = { showAddAdminDialog = true },
-                                onSpkPriorityClick = onSpkPriorityClick
-                            )
+                            HomeSection(title = "Operasional") {
+                                ShortcutRow {
+                                    ShortcutTile(Icons.Default.MyLocation, "Live GPS Armada", onTrackingClick, Modifier.weight(1f).fillMaxHeight())
+                                    ShortcutTile(Icons.Default.Bolt, "SPK Prioritas", onSpkPriorityClick, Modifier.weight(1f).fillMaxHeight())
+                                    ShortcutTile(Icons.Default.Campaign, "Broadcast Info", onBroadcastClick, Modifier.weight(1f).fillMaxHeight())
+                                }
+                            }
+                        }
+
+                        item {
+                            HomeSection(title = "Akun & Harga") {
+                                ShortcutRow {
+                                    ShortcutTile(Icons.Default.Group, "Kelola Akun", { activeModule = "tim" }, Modifier.weight(1f).fillMaxHeight())
+                                    ShortcutTile(Icons.Default.PersonAdd, "Akun Baru", { showAddAdminDialog = true }, Modifier.weight(1f).fillMaxHeight())
+                                    ShortcutTile(Icons.Default.LocalOffer, "Tarif Harga", onPriceManagerClick, Modifier.weight(1f).fillMaxHeight())
+                                }
+                            }
                         }
                     }
                 } else {
@@ -790,162 +782,133 @@ private fun PilihKurirDialog(
 }
 
 @Composable
-private fun SuperAdminControlCenterGrid(
-    onJemputClick: () -> Unit,
-    onCatatClick: () -> Unit,
-    onPencairanClick: () -> Unit,
-    onStatistikClick: () -> Unit,
-    onTimClick: () -> Unit,
-    onTrackingClick: () -> Unit,
-    onPriceClick: () -> Unit,
-    onBroadcastClick: () -> Unit,
-    onAddKurirClick: () -> Unit,
-    onSpkPriorityClick: () -> Unit = {}
-) {
-    Card(
-        shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = CardBackground),
-        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp)
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(PrimaryGreen.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Default.Dashboard, contentDescription = null, tint = PrimaryGreen, modifier = Modifier.size(20.dp))
-                    }
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            text = "Enterprise Command Center",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp,
-                            color = Color(0xFF0F172A)
-                        )
-                        Text(
-                            text = "Pusat Kendali Operasional Terpusat",
-                            fontSize = 11.sp,
-                            color = Color(0xFF64748B)
-                        )
-                    }
-                }
-                Surface(
-                    color = PrimaryGreen.copy(alpha = 0.12f),
-                    shape = RoundedCornerShape(50.dp)
-                ) {
+private fun RingkasanCard(totalTonaseKg: Double, totalSaldo: String, onStatistikClick: () -> Unit) {
+    Surface(color = CardBackground, shape = RoundedCornerShape(20.dp), shadowElevation = 2.dp) {
+        Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Total Tonase Daur Ulang", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
                     Text(
-                        text = "10 Modul (DSS)",
-                        fontSize = 11.sp,
+                        text = String.format(Locale("id", "ID"), "%.1f kg", totalTonaseKg),
+                        style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
-                        color = PrimaryGreen,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        color = PrimaryGreen
+                    )
+                }
+                VerticalDivider(color = Color(0xFFE2E8F0), modifier = Modifier.padding(horizontal = 16.dp))
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Total Saldo Tervalidasi", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+                    Text(
+                        text = totalSaldo,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = BlueProcess,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
-
-            HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.5.dp)
-
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    AdminCommandTile(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.LocalShipping,
-                        label = "Jemput",
-                        color = Color(0xFF0284C7),
-                        onClick = onJemputClick
-                    )
-                    AdminCommandTile(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.AssignmentTurnedIn,
-                        label = "Setor Mandiri",
-                        color = PrimaryGreen,
-                        onClick = onCatatClick
-                    )
-                }
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    AdminCommandTile(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.AccountBalanceWallet,
-                        label = "Pencairan",
-                        color = Color(0xFFD97706),
-                        onClick = onPencairanClick
-                    )
-                    AdminCommandTile(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.Analytics,
-                        label = "Statistik",
-                        color = Color(0xFF8B5CF6),
-                        onClick = onStatistikClick
-                    )
-                }
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    AdminCommandTile(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.Group,
-                        label = "Kelola Akun",
-                        color = Color(0xFF0EA5E9),
-                        onClick = onTimClick
-                    )
-                    AdminCommandTile(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.PersonAdd,
-                        label = "Akun Baru",
-                        color = Color(0xFF10B981),
-                        onClick = onAddKurirClick
-                    )
-                }
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    AdminCommandTile(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.MyLocation,
-                        label = "Live GPS",
-                        color = Color(0xFF6366F1),
-                        onClick = onTrackingClick
-                    )
-                    AdminCommandTile(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.LocalOffer,
-                        label = "Tarif Harga",
-                        color = Color(0xFFEC4899),
-                        onClick = onPriceClick
-                    )
-                }
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    AdminCommandTile(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.Bolt,
-                        label = "SPK Prioritas (DSS)",
-                        color = Color(0xFFDC2626),
-                        onClick = onSpkPriorityClick
-                    )
-                    AdminCommandTile(
-                        modifier = Modifier.weight(1f),
-                        icon = Icons.Default.Campaign,
-                        label = "Broadcast Info",
-                        color = Color(0xFFF59E0B),
-                        onClick = onBroadcastClick
-                    )
-                }
+            TextButton(
+                onClick = onStatistikClick,
+                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+                modifier = Modifier.padding(top = 8.dp)
+            ) {
+                Text("Lihat statistik lengkap", style = MaterialTheme.typography.labelLarge, color = PrimaryGreen)
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = PrimaryGreen, modifier = Modifier.size(18.dp))
             }
         }
+    }
+}
+
+@Composable
+private fun HomeSection(title: String, content: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF334155),
+            modifier = Modifier.padding(start = 4.dp).semantics { heading() }
+        )
+        content()
+    }
+}
+
+// Baris antrean validasi: jumlah yang menunggu langsung terlihat tanpa membuka modul
+@Composable
+private fun TindakanRow(icon: ImageVector, title: String, pending: Int, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        HomeIcon(icon)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = Color(0xFF0F172A))
+            Text(
+                text = if (pending > 0) "$pending menunggu ditinjau" else "Tidak ada antrean",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF64748B)
+            )
+        }
+        if (pending > 0) {
+            Badge(containerColor = Color(0xFFB45309), contentColor = Color.White) {
+                Text("$pending", style = MaterialTheme.typography.labelMedium)
+            }
+        }
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Color(0xFF94A3B8))
+    }
+}
+
+@Composable
+private fun ShortcutRow(content: @Composable RowScope.() -> Unit) {
+    // IntrinsicSize: tile dengan label dua baris tidak membuat tinggi tile sebaris berbeda
+    Row(
+        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        content = content
+    )
+}
+
+@Composable
+private fun ShortcutTile(icon: ImageVector, label: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Surface(
+        onClick = onClick,
+        color = CardBackground,
+        shape = RoundedCornerShape(16.dp),
+        modifier = modifier.heightIn(min = 96.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            HomeIcon(icon)
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFF0F172A),
+                textAlign = TextAlign.Center,
+                maxLines = 2
+            )
+        }
+    }
+}
+
+@Composable
+private fun HomeIcon(icon: ImageVector) {
+    Box(
+        modifier = Modifier
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(PrimaryGreen.copy(alpha = 0.12f)),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(icon, contentDescription = null, tint = PrimaryGreen, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -1032,52 +995,6 @@ private fun SuperAdminStatisticsView(
     }
 }
 
-@Composable
-private fun AdminCommandTile(
-    modifier: Modifier = Modifier,
-    icon: ImageVector,
-    label: String,
-    color: Color,
-    onClick: () -> Unit
-) {
-    Surface(
-        onClick = onClick,
-        color = color.copy(alpha = 0.08f),
-        shape = RoundedCornerShape(14.dp),
-        modifier = modifier.height(64.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(color.copy(alpha = 0.2f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = color,
-                    modifier = Modifier.size(20.dp)
-                )
-            }
-            Text(
-                text = label,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = color,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-    }
-}
 
 @Composable
 private fun EmptyStateView(message: String) {
