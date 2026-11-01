@@ -254,7 +254,7 @@ class MainActivity : ComponentActivity() {
                     composable("jemput_sampah") {
                         JemputSampahScreen(
                             viewModel = sampahViewModel,
-                            onAjukanClick = { jenis, berat, alamat, hp, catatan, lat, lng, kepenuhan, urgensi, kapasitas, wadah ->
+                            onAjukanClick = { jenis, berat, alamat, hp, catatan, lat, lng, kepenuhan, urgensi, kapasitas, wadah, foto ->
                                 sampahViewModel.ajukanPenjemputan(
                                     jenisSampah = jenis,
                                     estimasiBeratKg = berat,
@@ -266,7 +266,8 @@ class MainActivity : ComponentActivity() {
                                     tingkatKepenuhan = kepenuhan,
                                     urgensiWarga = urgensi,
                                     kapasitasTempatSampahLiter = kapasitas,
-                                    jenisWadah = wadah
+                                    jenisWadah = wadah,
+                                    fotoSampah = foto
                                 )
                                 navController.navigate("riwayat_jemput") {
                                     popUpTo("jemput_sampah") { inclusive = true }

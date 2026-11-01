@@ -28,8 +28,8 @@ interface PickupDao {
     @Query("SELECT * FROM pickup_transactions WHERE userId = :userId AND status IN ('MENUNGGU', 'DIPROSES') ORDER BY tanggalJemput DESC")
     fun getActivePickupByUser(userId: String): Flow<List<PickupTransaction>>
 
-    @Query("UPDATE pickup_transactions SET firebaseId = :firebaseId WHERE id = :id")
-    suspend fun updateFirebaseId(id: Int, firebaseId: String)
+    @Query("SELECT * FROM pickup_transactions WHERE firebaseId = :firebaseId LIMIT 1")
+    suspend fun getByFirebaseId(firebaseId: String): PickupTransaction?
 
     // ==========================================
     // QUERY KHUSUS ADMIN

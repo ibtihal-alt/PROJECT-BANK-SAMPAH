@@ -11,8 +11,12 @@ import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.Penarik
 import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.PenarikanSaldo
 import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.Sampah
 import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.SampahDao
+import com.google.firebase.FirebaseApp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.tasks.await
 import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.PriorityCriteriaWeights
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,11 +38,62 @@ class SampahViewModel(
 
     private val firestoreRepository = FirestoreSampahRepository()
     private val firestorePickupRepository = FirestorePickupRepository()
+    private val firestorePenarikanRepository = FirestorePenarikanRepository()
     private val auth = FirebaseAuth.getInstance()
     private val firestore = FirebaseFirestore.getInstance()
 
     private fun getUserId(): String {
         return auth.currentUser?.uid ?: ""
+    }
+
+    // =========================
+    // SINKRON FIRESTORE -> ROOM (REAL TIME ANTAR HP): PENJEMPUTAN, SETOR SAMPAH/SALDO, PENARIKAN
+    // =========================
+    private val syncRegistrations = mutableListOf<ListenerRegistration>()
+    private var syncKey = ""
+    private val syncMutex = Mutex()
+
+    fun startSync(asStaff: Boolean) {
+        val key = "${getUserId()}:$asStaff"
+        // Kembali ke dashboard tidak perlu memasang ulang listener; ganti akun/role baru memasang ulang
+        if (getUserId().isBlank() || key == syncKey) return
+        syncKey = key
+        syncRegistrations.forEach { it.remove() }
+        syncRegistrations.clear()
+
+        syncRegistrations += firestorePickupRepository.listenPickups(asStaff) { docs ->
+            syncLocked {
+                docs.forEach { doc ->
+                    val local = pickupDao.getByFirebaseId(doc.id)
+                    pickupDao.insert(FirestorePickupRepository.fromDoc(doc, local ?: PickupTransaction()))
+                }
+            }
+        }
+        syncRegistrations += firestoreRepository.listenSampah(asStaff) { docs ->
+            syncLocked {
+                docs.forEach { doc ->
+                    val local = sampahDao.getByFirebaseId(doc.id)
+                    sampahDao.insert(FirestoreSampahRepository.fromDoc(doc, local ?: Sampah(jenisSampah = "", berat = 0.0, catatan = "")))
+                }
+            }
+        }
+        syncRegistrations += firestorePenarikanRepository.listenPenarikan(asStaff) { docs ->
+            syncLocked {
+                docs.forEach { doc ->
+                    val local = penarikanDao.getByFirebaseId(doc.id)
+                    penarikanDao.insert(FirestorePenarikanRepository.fromDoc(doc, local ?: PenarikanSaldo()))
+                }
+            }
+        }
+    }
+
+    // Mutex: dua snapshot beruntun tidak boleh sama-sama menyisipkan baris baru untuk dokumen yang sama
+    private fun syncLocked(block: suspend () -> Unit) {
+        viewModelScope.launch { syncMutex.withLock { block() } }
+    }
+
+    override fun onCleared() {
+        syncRegistrations.forEach { it.remove() }
     }
 
     // ====================================================
@@ -221,6 +276,7 @@ class SampahViewModel(
                 val totalNilaiFix = berat * hargaFix
 
                 val sampah = Sampah(
+                    firebaseId = firestoreRepository.newSampahId(userId),
                     userId = userId,
                     jenisSampah = jenisSampah.trim(),
                     berat = berat,
@@ -230,11 +286,8 @@ class SampahViewModel(
                     status = "MENUNGGU"
                 )
 
-                val idBaru = sampahDao.insert(sampah)
-                val sampahDenganId = sampah.copy(id = idBaru.toInt())
-                val firebaseId = firestoreRepository.simpanSampah(sampahDenganId)
-
-                sampahDao.updateFirebaseId(idBaru.toInt(), firebaseId)
+                sampahDao.insert(sampah)
+                firestoreRepository.simpanSampah(sampah)
             } catch (e: Exception) {
                 Log.e("SIRAM", "Gagal menyimpan data", e)
             }
@@ -251,7 +304,7 @@ class SampahViewModel(
                 val sampahUpdated = sampah.copy(totalNilai = totalNilaiFix)
 
                 sampahDao.update(sampahUpdated)
-                firestoreRepository.updateSampah(sampahUpdated)
+                firestoreRepository.simpanSampah(sampahUpdated)
             } catch (e: Exception) {
                 Log.e("SIRAM", "Gagal mengupdate data", e)
             }
@@ -261,8 +314,9 @@ class SampahViewModel(
     fun hapusSampah(sampah: Sampah) {
         viewModelScope.launch {
             try {
-                firestoreRepository.hapusSampah(sampah)
+                // Soft delete juga di Firestore agar HP lain ikut menghapus lewat sinkron
                 sampahDao.softDelete(sampah.id)
+                firestoreRepository.simpanSampah(sampah.copy(isDeleted = true))
             } catch (e: Exception) {
                 Log.e("SIRAM", "Gagal menghapus data", e)
             }
@@ -283,7 +337,8 @@ class SampahViewModel(
         tingkatKepenuhan: Int = 80,
         urgensiWarga: String = "SEDANG",
         kapasitasTempatSampahLiter: Double = 100.0,
-        jenisWadah: String = "Tong Standar"
+        jenisWadah: String = "Tong Standar",
+        fotoSampah: ByteArray
     ) {
         val userId = getUserId()
         if (userId.isBlank()) return
@@ -291,6 +346,8 @@ class SampahViewModel(
         viewModelScope.launch {
             try {
                 val pickup = PickupTransaction(
+                    // ID Firestore dibuat dulu agar listener sinkron mengenali baris lokal ini (tidak dobel)
+                    firebaseId = firestorePickupRepository.newPickupId(userId),
                     userId = userId,
                     jenisSampah = jenisSampah.trim(),
                     estimasiBeratKg = estimasiBeratKg,
@@ -307,11 +364,10 @@ class SampahViewModel(
                     jenisWadah = jenisWadah
                 )
 
-                val idBaru = pickupDao.insert(pickup)
-                val pickupDenganId = pickup.copy(id = idBaru.toInt())
-                val firebaseId = firestorePickupRepository.ajukanPenjemputan(pickupDenganId)
-
-                pickupDao.updateFirebaseId(idBaru.toInt(), firebaseId)
+                pickupDao.insert(pickup)
+                // Foto diunggah lebih dulu agar admin tidak pernah melihat pengajuan tanpa foto
+                firestorePickupRepository.uploadFoto(pickup.firebaseId, FOTO_NASABAH, fotoSampah)
+                firestorePickupRepository.simpanPickup(pickup)
             } catch (e: Exception) {
                 Log.e("SIRAM", "Gagal mengajukan penjemputan", e)
             }
@@ -333,6 +389,7 @@ class SampahViewModel(
         viewModelScope.launch {
             try {
                 val penarikan = PenarikanSaldo(
+                    firebaseId = firestorePenarikanRepository.newPenarikanId(userId),
                     userId = userId,
                     metodePenarikan = metode,
                     nomorTujuan = nomorTujuan,
@@ -342,6 +399,7 @@ class SampahViewModel(
                     tanggal = System.currentTimeMillis()
                 )
                 penarikanDao.insert(penarikan)
+                firestorePenarikanRepository.simpanPenarikan(penarikan)
             } catch (e: Exception) {
                 Log.e("SIRAM", "Gagal mengajukan penarikan", e)
             }
@@ -362,11 +420,7 @@ class SampahViewModel(
                     assignedKurirName = kurirName
                 )
                 pickupDao.update(updated)
-                firestorePickupRepository.updateStatusPenjemputan(
-                    userId = pickup.userId,
-                    firebaseId = pickup.firebaseId,
-                    statusBaru = "DIPROSES"
-                )
+                firestorePickupRepository.simpanPickup(updated)
             } catch (e: Exception) {
                 Log.e("SIRAM_ADMIN", "Gagal menetapkan kurir penjemputan", e)
             }
@@ -376,12 +430,9 @@ class SampahViewModel(
     fun updateStatusPenjemputanByAdmin(pickup: PickupTransaction, statusBaru: String) {
         viewModelScope.launch {
             try {
-                pickupDao.update(pickup.copy(status = statusBaru))
-                firestorePickupRepository.updateStatusPenjemputan(
-                    userId = pickup.userId,
-                    firebaseId = pickup.firebaseId,
-                    statusBaru = statusBaru
-                )
+                val updated = pickup.copy(status = statusBaru)
+                pickupDao.update(updated)
+                firestorePickupRepository.simpanPickup(updated)
 
                 if (statusBaru == "SELESAI") {
                     val beratFix = if (pickup.beratAktualKg > 0) pickup.beratAktualKg else pickup.estimasiBeratKg
@@ -389,6 +440,8 @@ class SampahViewModel(
                     val totalFix = if (pickup.totalNominalRp > 0) pickup.totalNominalRp else (beratFix * hargaFix)
 
                     val sampahBaru = Sampah(
+                        // ID tetap per penjemputan: verifikasi SELESAI yang terulang tidak menambah saldo dua kali
+                        firebaseId = if (pickup.firebaseId.isNotBlank()) "pickup_${pickup.firebaseId}" else "",
                         userId = pickup.userId,
                         jenisSampah = pickup.jenisSampah,
                         berat = beratFix,
@@ -398,9 +451,9 @@ class SampahViewModel(
                         status = "DISETUJUI"
                     )
 
-                    val idBaru = sampahDao.insert(sampahBaru)
-                    val firebaseId = firestoreRepository.simpanSampah(sampahBaru.copy(id = idBaru.toInt()))
-                    sampahDao.updateFirebaseId(idBaru.toInt(), firebaseId)
+                    val existing = if (sampahBaru.firebaseId.isNotBlank()) sampahDao.getByFirebaseId(sampahBaru.firebaseId) else null
+                    sampahDao.insert(sampahBaru.copy(id = existing?.id ?: 0))
+                    firestoreRepository.simpanSampah(sampahBaru)
                 }
             } catch (e: Exception) {
                 Log.e("SIRAM_ADMIN", "Gagal mengupdate status penjemputan", e)
@@ -417,8 +470,8 @@ class SampahViewModel(
         viewModelScope.launch {
             try {
                 val sampahUpdated = sampah.copy(status = statusBaru)
-                sampahDao.updateStatusSampahAdmin(sampah.id, statusBaru)
-                firestoreRepository.updateSampah(sampahUpdated)
+                sampahDao.update(sampahUpdated)
+                firestoreRepository.simpanSampah(sampahUpdated)
             } catch (e: Exception) {
                 Log.e("SIRAM_ADMIN", "Gagal mengupdate status sampah mandiri", e)
             }
@@ -441,7 +494,7 @@ class SampahViewModel(
                     status = statusBaru
                 )
                 sampahDao.update(sampahUpdated)
-                firestoreRepository.updateSampah(sampahUpdated)
+                firestoreRepository.simpanSampah(sampahUpdated)
             } catch (e: Exception) {
                 Log.e("SIRAM_ADMIN", "Gagal mengupdate status & detail sampah mandiri", e)
             }
@@ -456,7 +509,9 @@ class SampahViewModel(
     fun updateStatusPenarikanByAdmin(penarikan: PenarikanSaldo, statusBaru: String) {
         viewModelScope.launch {
             try {
-                penarikanDao.updateStatusPenarikanAdmin(penarikan.id, statusBaru)
+                val penarikanUpdated = penarikan.copy(status = statusBaru)
+                penarikanDao.update(penarikanUpdated)
+                firestorePenarikanRepository.simpanPenarikan(penarikanUpdated)
             } catch (e: Exception) {
                 Log.e("SIRAM_ADMIN", "Gagal mengupdate status penarikan", e)
             }
@@ -475,6 +530,7 @@ class SampahViewModel(
                     status = statusBaru
                 )
                 penarikanDao.update(penarikanUpdated)
+                firestorePenarikanRepository.simpanPenarikan(penarikanUpdated)
             } catch (e: Exception) {
                 Log.e("SIRAM_ADMIN", "Gagal mengupdate status & nominal penarikan", e)
             }
@@ -490,8 +546,13 @@ class SampahViewModel(
     ) {
         viewModelScope.launch {
             try {
-                val authInstance = FirebaseAuth.getInstance()
+                // Pakai FirebaseApp kedua: createUser di instance utama akan mengganti sesi super admin ke akun baru
+                val defaultApp = FirebaseApp.getInstance()
+                val creatorApp = FirebaseApp.getApps(defaultApp.applicationContext).firstOrNull { it.name == "pembuat_akun" }
+                    ?: FirebaseApp.initializeApp(defaultApp.applicationContext, defaultApp.options, "pembuat_akun")
+                val authInstance = FirebaseAuth.getInstance(creatorApp)
                 val authResult = authInstance.createUserWithEmailAndPassword(email.trim(), password).await()
+                authInstance.signOut()
                 val uid = authResult.user?.uid ?: ""
                 if (uid.isNotEmpty()) {
                     val userData = hashMapOf(
@@ -508,6 +569,29 @@ class SampahViewModel(
                 }
             } catch (e: Exception) {
                 onResult(false, e.message ?: "Terjadi kesalahan")
+            }
+        }
+    }
+
+    fun updateAkun(uid: String, nama: String, role: String, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                firestore.collection("users").document(uid).update(mapOf("nama" to nama, "role" to role)).await()
+                onResult(true, "Akun $nama berhasil diperbarui")
+            } catch (e: Exception) {
+                onResult(false, e.message ?: "Gagal memperbarui akun")
+            }
+        }
+    }
+
+    // Hanya menghapus profil Firestore; akun login Firebase Auth tetap ada (perlu Admin SDK untuk menghapusnya)
+    fun hapusAkun(uid: String, nama: String, onResult: (Boolean, String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                firestore.collection("users").document(uid).delete().await()
+                onResult(true, "Data akun $nama berhasil dihapus")
+            } catch (e: Exception) {
+                onResult(false, e.message ?: "Gagal menghapus akun")
             }
         }
     }

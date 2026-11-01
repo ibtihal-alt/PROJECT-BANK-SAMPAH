@@ -113,15 +113,8 @@ interface SampahDao {
     // =========================
     // SIMPAN FIREBASE ID
     // =========================
-    @Query("""
-        UPDATE sampah
-        SET firebaseId = :firebaseId
-        WHERE id = :id
-    """)
-    suspend fun updateFirebaseId(
-        id: Int,
-        firebaseId: String
-    )
+    @Query("SELECT * FROM sampah WHERE firebaseId = :firebaseId LIMIT 1")
+    suspend fun getByFirebaseId(firebaseId: String): Sampah?
 
 
     // ==========================================
@@ -134,15 +127,4 @@ interface SampahDao {
         ORDER BY tanggal DESC
     """)
     fun getAllSampahForAdmin(): Flow<List<Sampah>>
-
-    // Mengubah status validasi catat sampah oleh Admin (DISETUJUI / DITOLAK)
-    @Query("""
-        UPDATE sampah
-        SET status = :statusBaru
-        WHERE id = :sampahId
-    """)
-    suspend fun updateStatusSampahAdmin(
-        sampahId: Int,
-        statusBaru: String
-    )
 }

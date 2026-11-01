@@ -20,6 +20,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.LocalShipping
@@ -75,7 +78,8 @@ fun JemputSampahScreen(
         tingkatKepenuhan: Int,
         urgensiWarga: String,
         kapasitasWadah: Double,
-        jenisWadah: String
+        jenisWadah: String,
+        fotoSampah: ByteArray
     ) -> Unit,
     onBackClick: () -> Unit = {}
 ) {
@@ -94,6 +98,8 @@ fun JemputSampahScreen(
     var urgensiWarga by remember { mutableStateOf("SEDANG") }
     var kapasitasWadahLiter by remember { mutableStateOf("100") }
     var jenisWadah by remember { mutableStateOf("Tong Standar") }
+    var fotoSampah by remember { mutableStateOf<ByteArray?>(null) }
+    val ambilFotoSampah = rememberCameraCapture { fotoSampah = it }
 
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     var pickupLat by remember { mutableStateOf(0.0) }
@@ -584,6 +590,35 @@ fun JemputSampahScreen(
 
                             Spacer(modifier = Modifier.height(10.dp))
 
+                            // FOTO SAMPAH (WAJIB, LANGSUNG DARI KAMERA)
+                            OutlinedButton(
+                                onClick = ambilFotoSampah,
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(14.dp)
+                            ) {
+                                Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (fotoSampah == null) "FOTO SAMPAH ANDA (WAJIB)" else "✅ FOTO TERLAMPIR • FOTO ULANG",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp
+                                )
+                            }
+                            fotoSampah?.let { foto ->
+                                AsyncImage(
+                                    model = foto,
+                                    contentDescription = "Foto sampah",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(180.dp)
+                                        .padding(top = 8.dp)
+                                        .clip(RoundedCornerShape(14.dp))
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
                             // TOMBOL SUBMIT PENJEMPUTAN (WARM BUTTER YELLOW PILL)
                             Button(
                                 onClick = {
@@ -594,6 +629,7 @@ fun JemputSampahScreen(
                                         estimasiBerat.toDouble() <= 0 -> errorMessage = "⚠️ Berat minimal 0.5 Kg"
                                         alamat.isBlank() -> errorMessage = "⚠️ Alamat penjemputan wajib diisi"
                                         nomorHp.isBlank() -> errorMessage = "⚠️ Nomor WhatsApp/HP wajib diisi"
+                                        fotoSampah == null -> errorMessage = "⚠️ Foto sampah wajib diambil"
                                         else -> {
                                             onAjukanClick(
                                                 jenisSampah.trim(),
@@ -606,7 +642,8 @@ fun JemputSampahScreen(
                                                 tingkatKepenuhan,
                                                 urgensiWarga,
                                                 kapasitasWadahLiter.toDoubleOrNull() ?: 100.0,
-                                                jenisWadah
+                                                jenisWadah,
+                                                fotoSampah!!
                                             )
                                         }
                                     }

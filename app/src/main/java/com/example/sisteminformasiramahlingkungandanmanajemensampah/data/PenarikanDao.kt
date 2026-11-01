@@ -22,6 +22,6 @@ interface PenarikanDao {
     @Query("SELECT * FROM penarikan_saldo ORDER BY tanggal DESC")
     fun getAllPenarikanForAdmin(): Flow<List<PenarikanSaldo>>
 
-    @Query("UPDATE penarikan_saldo SET status = :statusBaru WHERE id = :id")
-    suspend fun updateStatusPenarikanAdmin(id: Int, statusBaru: String)
+    @Query("SELECT * FROM penarikan_saldo WHERE firebaseId = :firebaseId LIMIT 1")
+    suspend fun getByFirebaseId(firebaseId: String): PenarikanSaldo?
 }

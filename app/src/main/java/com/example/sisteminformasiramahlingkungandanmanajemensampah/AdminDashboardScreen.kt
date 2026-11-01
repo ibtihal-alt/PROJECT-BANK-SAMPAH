@@ -75,6 +75,8 @@ fun AdminDashboardScreen(
     val coroutineScope = rememberCoroutineScope()
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
 
+    LaunchedEffect(Unit) { viewModel.startSync(asStaff = true) }
+
     val locationPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
@@ -375,12 +377,11 @@ fun AdminDashboardScreen(
         KalkulatorLapanganDialog(
             pickup = selectedPickupForSelesai!!,
             onDismiss = { showSelesaiDialog = false; selectedPickupForSelesai = null },
-            onConfirmSelesai = { beratAktual, hargaPerKg, totalSaldo, fotoUri ->
+            onConfirmSelesai = { beratAktual, hargaPerKg, totalSaldo ->
                 val pickupUpdated = selectedPickupForSelesai!!.copy(
                     beratAktualKg = beratAktual,
                     hargaPerKgAktual = hargaPerKg,
                     totalNominalRp = totalSaldo,
-                    fotoBuktiUri = fotoUri,
                     status = "MENUNGGU_VERIFIKASI"
                 )
                 viewModel.updateStatusPenjemputanByAdmin(pickupUpdated, "MENUNGGU_VERIFIKASI")
@@ -530,8 +531,16 @@ private fun CommercialPickupCard(
                 Text(text = "👤 Ditugaskan ke: ${pickup.assignedKurirName}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = PrimaryGreen)
             }
 
-            if (pickup.fotoBuktiUri.isNotBlank()) {
-                Text(text = "📸 Foto Bukti Penimbangan: Tersedia", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = BlueProcess)
+            if (pickup.firebaseId.isNotBlank()) {
+                var showFotoNasabah by remember { mutableStateOf(false) }
+                TextButton(onClick = { showFotoNasabah = true }, contentPadding = PaddingValues(0.dp)) {
+                    Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(16.dp), tint = BlueProcess)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("📸 LIHAT FOTO SAMPAH DARI NASABAH", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = BlueProcess)
+                }
+                if (showFotoNasabah) {
+                    PickupPhotosDialog(pickup = pickup, tahapList = TAHAP_FOTO_NASABAH, onDismiss = { showFotoNasabah = false })
+                }
             }
 
             if (pickup.catatan.isNotBlank()) {
@@ -541,6 +550,10 @@ private fun CommercialPickupCard(
             Spacer(modifier = Modifier.height(14.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                if (pickup.status.equals("DIPROSES", ignoreCase = true)) {
+                    FotoTahapButton(pickup = pickup, tahap = FOTO_AMBIL, label = "Foto Ambil Sampah")
+                }
+
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     Button(
                         onClick = { onUpdateStatus(pickup, "SELESAI") },
@@ -571,24 +584,15 @@ private fun CommercialPickupCard(
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     Button(
-                        onClick = {
-                            val gmmIntentUri = Uri.parse("geo:0,0?q=${Uri.encode(pickup.alamatLengkap)}")
-                            val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
-                            try {
-                                context.startActivity(mapIntent)
-                            } catch (e: Exception) {
-                                val webUri = Uri.parse("https://www.google.com/maps/search/?api=1&query=${Uri.encode(pickup.alamatLengkap)}")
-                                context.startActivity(Intent(Intent.ACTION_VIEW, webUri))
-                            }
-                        },
+                        onClick = { bukaNavigasiGoogleMaps(context, pickup.latitude, pickup.longitude, pickup.alamatLengkap) },
                         modifier = Modifier.weight(1f),
                         contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
                         shape = RoundedCornerShape(8.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = BlueProcess)
                     ) {
-                        Icon(Icons.Default.Map, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Default.Navigation, contentDescription = null, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("BUKA MAPS", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("NAVIGASI", fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
 
                     Button(
@@ -611,16 +615,16 @@ private fun CommercialPickupCard(
 private fun KalkulatorLapanganDialog(
     pickup: PickupTransaction,
     onDismiss: () -> Unit,
-    onConfirmSelesai: (beratAktual: Double, hargaPerKg: Double, totalSaldo: Double, fotoUri: String) -> Unit
+    onConfirmSelesai: (beratAktual: Double, hargaPerKg: Double, totalSaldo: Double) -> Unit
 ) {
     var beratAktualText by remember { mutableStateOf(if (pickup.beratAktualKg > 0) pickup.beratAktualKg.toString() else pickup.estimasiBeratKg.toString()) }
     var hargaPerKgText by remember { mutableStateOf(if (pickup.hargaPerKgAktual > 0) pickup.hargaPerKgAktual.toInt().toString() else "5000") }
-    var fotoBuktiUri by remember { mutableStateOf(pickup.fotoBuktiUri) }
     val currencyFormat = remember { NumberFormat.getCurrencyInstance(Locale("id", "ID")) }
 
-    val photoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        uri?.let { fotoBuktiUri = it.toString() }
-    }
+    val fotoAmbil = rememberPickupPhoto(pickup.firebaseId, FOTO_AMBIL)
+    val fotoSelesai = rememberPickupPhoto(pickup.firebaseId, FOTO_SELESAI)
+    // Penjemputan lama (sebelum sinkron Firestore) tidak bisa menyimpan foto, jadi tidak diwajibkan
+    val fotoLengkap = pickup.firebaseId.isBlank() || (fotoAmbil != null && fotoSelesai != null)
 
     val beratDouble = beratAktualText.toDoubleOrNull() ?: 0.0
     val hargaDouble = hargaPerKgText.toDoubleOrNull() ?: 0.0
@@ -651,14 +655,10 @@ private fun KalkulatorLapanganDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                OutlinedButton(
-                    onClick = { photoLauncher.launch("image/*") },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(if (fotoBuktiUri.isBlank()) "Ambil / Unggah Foto Bukti" else "✅ Foto Bukti Terlampir")
+                FotoTahapButton(pickup = pickup, tahap = FOTO_AMBIL, label = "Foto Ambil Sampah")
+                FotoTahapButton(pickup = pickup, tahap = FOTO_SELESAI, label = "Foto Timbangan")
+                if (!fotoLengkap) {
+                    Text("⚠️ Foto ambil sampah & foto timbangan wajib sebelum selesai", fontSize = 11.sp, color = RedDanger)
                 }
 
                 Surface(
@@ -680,7 +680,8 @@ private fun KalkulatorLapanganDialog(
         },
         confirmButton = {
             Button(
-                onClick = { if (beratDouble > 0 && hargaDouble > 0) onConfirmSelesai(beratDouble, hargaDouble, totalEstimasi, fotoBuktiUri) },
+                onClick = { if (beratDouble > 0 && hargaDouble > 0) onConfirmSelesai(beratDouble, hargaDouble, totalEstimasi) },
+                enabled = fotoLengkap,
                 colors = ButtonDefaults.buttonColors(containerColor = GreenSuccess)
             ) {
                 Text("VERIFIKASI & SELESAI")

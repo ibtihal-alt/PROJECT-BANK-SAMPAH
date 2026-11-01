@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -42,8 +43,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import coil.compose.AsyncImage
-import coil.request.ImageRequest
 import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.PenarikanSaldo
 import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.PickupTransaction
 import com.example.sisteminformasiramahlingkungandanmanajemensampah.data.Sampah
@@ -84,6 +83,8 @@ fun SuperAdminDashboardScreen(
     val context = LocalContext.current
 
     var activeModule by remember { mutableStateOf("home") }
+
+    LaunchedEffect(Unit) { viewModel.startSync(asStaff = true) }
 
     BackHandler(enabled = activeModule != "home") {
         activeModule = "home"
@@ -138,7 +139,6 @@ fun SuperAdminDashboardScreen(
     var selectedPickupForSelesai by remember { mutableStateOf<PickupTransaction?>(null) }
     var showPilihKurirDialog by remember { mutableStateOf(false) }
     var selectedPickupForKurir by remember { mutableStateOf<PickupTransaction?>(null) }
-    var previewPhotoUri by remember { mutableStateOf<String?>(null) }
     var showCatatSampahDialog by remember { mutableStateOf(false) }
     var selectedSampahForSetuju by remember { mutableStateOf<Sampah?>(null) }
     var showPencairanDialog by remember { mutableStateOf(false) }
@@ -146,35 +146,19 @@ fun SuperAdminDashboardScreen(
     var showAddAdminDialog by remember { mutableStateOf(false) }
     var adminMessage by remember { mutableStateOf("") }
     var staffList by remember { mutableStateOf<List<Map<String, Any>>>(emptyList()) }
+    var editAkun by remember { mutableStateOf<Map<String, Any>?>(null) }
+    var hapusAkun by remember { mutableStateOf<Map<String, Any>?>(null) }
 
-    LaunchedEffect(Unit) {
-        try {
-            firestore.collection("users").get()
-                .addOnSuccessListener { result ->
-                    staffList = result.documents.map { doc -> doc.data ?: emptyMap() }
-                }
-                .addOnFailureListener { e ->
-                    Log.e("SIRAM_SUPER", "Gagal memuat staff", e)
-                }
-        } catch (e: Exception) {
-            Log.e("SIRAM_SUPER", "Exception staff", e)
-        }
-    }
-
-    LaunchedEffect(showAddAdminDialog || showPilihKurirDialog) {
-        if (showAddAdminDialog || showPilihKurirDialog) {
-            try {
-                firestore.collection("users").get()
-                    .addOnSuccessListener { result ->
-                        staffList = result.documents.map { doc -> doc.data ?: emptyMap() }
-                    }
-                    .addOnFailureListener { e ->
-                        Log.e("SIRAM_SUPER", "Gagal memuat staff dialog", e)
-                    }
-            } catch (e: Exception) {
-                Log.e("SIRAM_SUPER", "Exception dialog", e)
+    // Live: daftar akun langsung ikut berubah setelah tambah/edit/hapus akun
+    DisposableEffect(Unit) {
+        val listener = firestore.collection("users").addSnapshotListener { result, e ->
+            if (e != null) {
+                Log.e("SIRAM_SUPER", "Gagal memuat akun", e)
+            } else if (result != null) {
+                staffList = result.documents.map { doc -> (doc.data ?: emptyMap()) + ("uid" to doc.id) }
             }
         }
+        onDispose { listener.remove() }
     }
 
     val listStatusPickup = listOf("MENUNGGU", "DIPROSES", "MENUNGGU_VERIFIKASI", "SELESAI", "DITOLAK", "SEMUA")
@@ -255,7 +239,7 @@ fun SuperAdminDashboardScreen(
                                     "catat" -> "Validasi Setor Mandiri"
                                     "pencairan" -> "Validasi Pencairan Saldo"
                                     "statistik" -> "Statistik & Analitik Sistem"
-                                    "tim" -> "Manajemen Tim & Kurir"
+                                    "tim" -> "Kelola Akun & Role"
                                     else -> "Super Admin Module"
                                 },
                                 fontWeight = FontWeight.Bold,
@@ -435,8 +419,18 @@ fun SuperAdminDashboardScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            items(staffList) { staff ->
-                                StaffMemberCard(staff = staff)
+                            val akunTampil = staffList.filter {
+                                (it["nama"] as? String ?: "").contains(searchQuery.trim(), ignoreCase = true) ||
+                                        (it["email"] as? String ?: "").contains(searchQuery.trim(), ignoreCase = true)
+                            }
+                            items(akunTampil, key = { it["uid"] as String }) { staff ->
+                                StaffMemberCard(
+                                    staff = staff,
+                                    // Super admin tidak bisa mengubah/menghapus akunnya sendiri agar tidak terkunci keluar
+                                    isSelf = staff["uid"] == auth.currentUser?.uid,
+                                    onEdit = { editAkun = staff },
+                                    onDelete = { hapusAkun = staff }
+                                )
                             }
                         }
                     } else {
@@ -506,9 +500,6 @@ fun SuperAdminDashboardScreen(
                                                             viewModel.updateStatusPenjemputanByAdmin(item, statusBaru)
                                                             selectedFilterPickup = statusBaru
                                                         }
-                                                    },
-                                                    onViewPhoto = { uri ->
-                                                        previewPhotoUri = uri
                                                     }
                                                 )
                                             }
@@ -647,13 +638,6 @@ fun SuperAdminDashboardScreen(
         )
     }
 
-    if (previewPhotoUri != null) {
-        PhotoPreviewDialog(
-            photoUri = previewPhotoUri!!,
-            onDismiss = { previewPhotoUri = null }
-        )
-    }
-
     if (showCatatSampahDialog && selectedSampahForSetuju != null) {
         KalkulatorCatatSampahDialog(
             sampah = selectedSampahForSetuju!!,
@@ -700,6 +684,44 @@ fun SuperAdminDashboardScreen(
         )
     }
 
+    editAkun?.let { akun ->
+        EditAkunDialog(
+            akun = akun,
+            onDismiss = { editAkun = null },
+            onSave = { nama, role ->
+                viewModel.updateAkun(akun["uid"] as String, nama, role) { success, msg ->
+                    adminMessage = msg
+                    if (success) editAkun = null
+                }
+            }
+        )
+    }
+
+    hapusAkun?.let { akun ->
+        val nama = akun["nama"] as? String ?: "Tanpa Nama"
+        AlertDialog(
+            onDismissRequest = { hapusAkun = null },
+            title = { Text("Hapus Akun?", fontWeight = FontWeight.Bold) },
+            text = {
+                Text("Data profil $nama akan dihapus. Akun login-nya tetap ada di Firebase, jadi bila orang ini login lagi ia akan terdaftar ulang sebagai Nasabah.")
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        viewModel.hapusAkun(akun["uid"] as String, nama) { _, msg -> adminMessage = msg }
+                        hapusAkun = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = RedDanger)
+                ) {
+                    Text("HAPUS")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { hapusAkun = null }) { Text("BATAL") }
+            }
+        )
+    }
+
     if (adminMessage.isNotBlank()) {
         AlertDialog(
             onDismissRequest = { adminMessage = "" },
@@ -712,44 +734,6 @@ fun SuperAdminDashboardScreen(
             }
         )
     }
-}
-
-@Composable
-private fun PhotoPreviewDialog(
-    photoUri: String,
-    onDismiss: () -> Unit
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Foto Bukti Penimbangan", fontWeight = FontWeight.Bold) },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(photoUri)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = "Bukti Penimbangan",
-                    contentScale = ContentScale.Fit,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(320.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = onDismiss,
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)
-            ) {
-                Text("TUTUP")
-            }
-        }
-    )
 }
 
 @Composable
@@ -914,14 +898,14 @@ private fun SuperAdminControlCenterGrid(
                     AdminCommandTile(
                         modifier = Modifier.weight(1f),
                         icon = Icons.Default.Group,
-                        label = "Tim Kurir",
+                        label = "Kelola Akun",
                         color = Color(0xFF0EA5E9),
                         onClick = onTimClick
                     )
                     AdminCommandTile(
                         modifier = Modifier.weight(1f),
                         icon = Icons.Default.PersonAdd,
-                        label = "Kurir Baru",
+                        label = "Akun Baru",
                         color = Color(0xFF10B981),
                         onClick = onAddKurirClick
                     )
@@ -1342,10 +1326,10 @@ private fun TambahAdminDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Tambah Akun Admin / Kurir Baru", fontWeight = FontWeight.Bold) },
+        title = { Text("Tambah Akun Baru", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Daftarkan akun operasional baru untuk kurir lapangan atau admin penjemputan.", fontSize = 12.sp, color = Color(0xFF64748B))
+                Text("Daftarkan akun baru untuk nasabah, admin penjemputan, atau super admin.", fontSize = 12.sp, color = Color(0xFF64748B))
 
                 OutlinedTextField(
                     value = nama,
@@ -1372,19 +1356,7 @@ private fun TambahAdminDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Text("Pilih Peran (Role):", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF334155))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(
-                        selected = selectedRole == "admin",
-                        onClick = { selectedRole = "admin" },
-                        label = { Text("Kurir Lapangan") }
-                    )
-                    FilterChip(
-                        selected = selectedRole == "super_admin",
-                        onClick = { selectedRole = "super_admin" },
-                        label = { Text("Super Admin") }
-                    )
-                }
+                RolePicker(selectedRole = selectedRole, onSelect = { selectedRole = it })
             }
         },
         confirmButton = {
@@ -1405,11 +1377,80 @@ private fun TambahAdminDialog(
     )
 }
 
+private val ROLE_OPTIONS = listOf(
+    "nasabah" to "Nasabah",
+    "admin" to "Admin Penjemputan (Kurir)",
+    "super_admin" to "Super Admin"
+)
+
 @Composable
-private fun StaffMemberCard(staff: Map<String, Any>) {
+private fun RolePicker(selectedRole: String, onSelect: (String) -> Unit) {
+    Text("Pilih Peran (Role):", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF334155))
+    Column {
+        ROLE_OPTIONS.forEach { (value, label) ->
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable { onSelect(value) }
+            ) {
+                RadioButton(selected = selectedRole == value, onClick = { onSelect(value) })
+                Text(label, fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun EditAkunDialog(
+    akun: Map<String, Any>,
+    onDismiss: () -> Unit,
+    onSave: (nama: String, role: String) -> Unit
+) {
+    var nama by remember { mutableStateOf(akun["nama"] as? String ?: "") }
+    var selectedRole by remember { mutableStateOf((akun["role"] as? String ?: "nasabah").lowercase()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit Akun", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(akun["email"] as? String ?: "-", fontSize = 12.sp, color = Color(0xFF64748B))
+                OutlinedTextField(
+                    value = nama,
+                    onValueChange = { nama = it },
+                    label = { Text("Nama Lengkap") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                RolePicker(selectedRole = selectedRole, onSelect = { selectedRole = it })
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { if (nama.isNotBlank()) onSave(nama.trim(), selectedRole) },
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen)
+            ) {
+                Text("SIMPAN")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("BATAL") }
+        }
+    )
+}
+
+@Composable
+private fun StaffMemberCard(
+    staff: Map<String, Any>,
+    isSelf: Boolean,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
     val nama = staff["nama"] as? String ?: "Tanpa Nama"
     val email = staff["email"] as? String ?: "-"
-    val role = staff["role"] as? String ?: "admin"
+    val role = staff["role"] as? String ?: "nasabah"
 
     Card(
         shape = RoundedCornerShape(16.dp),
@@ -1435,19 +1476,28 @@ private fun StaffMemberCard(staff: Map<String, Any>) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = nama, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = Color(0xFF0F172A))
                 Text(text = email, fontSize = 12.sp, color = Color(0xFF64748B))
+                Surface(
+                    color = if (role == "super_admin") Color(0xFFFEF3C7) else Color(0xFFE0F2FE),
+                    shape = RoundedCornerShape(50.dp),
+                    modifier = Modifier.padding(top = 4.dp)
+                ) {
+                    Text(
+                        text = if (isSelf) "${role.uppercase()} (ANDA)" else role.uppercase(),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (role == "super_admin") Color(0xFFD97706) else Color(0xFF0284C7),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
             }
 
-            Surface(
-                color = if (role == "super_admin") Color(0xFFFEF3C7) else Color(0xFFE0F2FE),
-                shape = RoundedCornerShape(50.dp)
-            ) {
-                Text(
-                    text = role.uppercase(),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (role == "super_admin") Color(0xFFD97706) else Color(0xFF0284C7),
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                )
+            if (!isSelf) {
+                IconButton(onClick = onEdit) {
+                    Icon(Icons.Default.Edit, contentDescription = "Edit akun $nama", tint = BlueProcess)
+                }
+                IconButton(onClick = onDelete) {
+                    Icon(Icons.Default.Delete, contentDescription = "Hapus akun $nama", tint = RedDanger)
+                }
             }
         }
     }
@@ -1456,8 +1506,7 @@ private fun StaffMemberCard(staff: Map<String, Any>) {
 @Composable
 private fun CommercialPickupCard(
     pickup: PickupTransaction,
-    onUpdateStatus: (item: PickupTransaction, statusBaru: String) -> Unit,
-    onViewPhoto: (String) -> Unit
+    onUpdateStatus: (item: PickupTransaction, statusBaru: String) -> Unit
 ) {
     val context = LocalContext.current
     val (statusColor, statusBg) = when (pickup.status.uppercase()) {
@@ -1546,17 +1595,21 @@ private fun CommercialPickupCard(
                 Text(text = "👤 Kurir Ditugaskan: ${pickup.assignedKurirName}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = PrimaryGreen)
             }
 
-            if (pickup.fotoBuktiUri.isNotBlank()) {
+            if (pickup.firebaseId.isNotBlank()) {
+                var showFoto by remember { mutableStateOf(false) }
                 Spacer(modifier = Modifier.height(6.dp))
                 OutlinedButton(
-                    onClick = { onViewPhoto(pickup.fotoBuktiUri) },
+                    onClick = { showFoto = true },
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(16.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("LIHAT FOTO BUKTI PENIMBANGAN", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text("LIHAT FOTO NASABAH & KURIR", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+                if (showFoto) {
+                    PickupPhotosDialog(pickup = pickup, tahapList = TAHAP_FOTO_SEMUA, onDismiss = { showFoto = false })
                 }
             }
 

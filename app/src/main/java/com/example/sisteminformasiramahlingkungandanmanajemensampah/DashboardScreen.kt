@@ -100,6 +100,8 @@ fun DashboardScreen(
     val semuaSampah by viewModel.semuaSampah.collectAsState(initial = emptyList())
     val penjemputanAktif by viewModel.penjemputanAktif.collectAsState(initial = emptyList())
 
+    LaunchedEffect(Unit) { viewModel.startSync(asStaff = false) }
+
     val context = LocalContext.current
     val userPreferences = remember { UserPreferences(context) }
     val profilePhotoUri = userPreferences.fotoProfil

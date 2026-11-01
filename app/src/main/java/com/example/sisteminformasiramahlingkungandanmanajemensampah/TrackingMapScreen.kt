@@ -1,6 +1,8 @@
 package com.example.sisteminformasiramahlingkungandanmanajemensampah
 
 import android.Manifest
+import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -58,6 +60,19 @@ private val CardBackground = Color(0xFFFFFFFF)
 private val ButterYellow = Color(0xFFF7CF68)
 private val ButterYellowDark = Color(0xFF2E2405)
 private val PastelViolet = Color(0xFF8B5CF6) // Polyline rute GPS dari referensi Screen 4
+
+// Navigasi belok-demi-belok langsung ke titik jemput (seperti ojol); tanpa koordinat, tujuan memakai alamat
+fun bukaNavigasiGoogleMaps(context: Context, lat: Double, lng: Double, alamat: String) {
+    val tujuan = if (lat != 0.0 && lng != 0.0) "$lat,$lng" else Uri.encode(alamat)
+    val navIntent = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=$tujuan&mode=d"))
+        .setPackage("com.google.android.apps.maps")
+    try {
+        context.startActivity(navIntent)
+    } catch (e: ActivityNotFoundException) {
+        // Google Maps tidak terpasang: buka rute di browser
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/dir/?api=1&destination=$tujuan&travelmode=driving")))
+    }
+}
 
 // Kurir dianggap online bila GPS terakhir masuk <= 5 menit lalu (siaran aktif mengirim tiap ~3 detik)
 internal const val COURIER_ONLINE_WINDOW_MS = 5 * 60 * 1000L
@@ -885,17 +900,7 @@ fun TrackingMapScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Button(
-                                onClick = {
-                                    val gmmUri = Uri.parse("google.navigation:q=${p.latitude},${p.longitude}&mode=d")
-                                    val mapIntent = Intent(Intent.ACTION_VIEW, gmmUri)
-                                    mapIntent.setPackage("com.google.android.apps.maps")
-                                    try {
-                                        context.startActivity(mapIntent)
-                                    } catch (e: Exception) {
-                                        val webUri = Uri.parse("https://www.google.com/maps/dir/?api=1&destination=${p.latitude},${p.longitude}")
-                                        context.startActivity(Intent(Intent.ACTION_VIEW, webUri))
-                                    }
-                                },
+                                onClick = { bukaNavigasiGoogleMaps(context, p.latitude, p.longitude, p.alamatLengkap) },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(50.dp),
                                 colors = ButtonDefaults.buttonColors(
