@@ -11,6 +11,10 @@
 
 **Aplikasi Pengelolaan Bank Sampah Cerdas Berbasis Android dengan *Adaptive Context-Aware Waste Collection Priority System (Decision Support System)* dan Antarmuka Modern *Pastel Mint & Butter Yellow*.**
 
+[![Download APK](https://img.shields.io/badge/Download-APK%20v1.0-2E7D32?style=for-the-badge&logo=android&logoColor=white)](https://github.com/ibtihal-alt/PROJECT-BANK-SAMPAH/releases/download/v1.0/SIRAM-SAMPAH-v1.0-debug.apk)
+
+📥 **[Download APK SIRAM v1.0](https://github.com/ibtihal-alt/PROJECT-BANK-SAMPAH/releases/download/v1.0/SIRAM-SAMPAH-v1.0-debug.apk)** • [Halaman Rilis](https://github.com/ibtihal-alt/PROJECT-BANK-SAMPAH/releases/tag/v1.0)
+
 [Fitur Utama](#-fitur-utama) • [Sistem Prioritas Adaptif (DSS)](#-sistem-prioritas-adaptif-dss) • [Arsitektur & Tech Stack](#-arsitektur--teknologi) • [Struktur Direktori](#-struktur-direktori-proyek) • [Panduan Instalasi](#-panduan-instalasi--menjalankan-aplikasi)
 
 </div>
