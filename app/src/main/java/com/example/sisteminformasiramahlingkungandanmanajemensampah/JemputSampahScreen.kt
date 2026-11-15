@@ -99,7 +99,7 @@ fun JemputSampahScreen(
     var kapasitasWadahLiter by remember { mutableStateOf("100") }
     var jenisWadah by remember { mutableStateOf("Tong Standar") }
     var fotoSampah by remember { mutableStateOf<ByteArray?>(null) }
-    val ambilFotoSampah = rememberCameraCapture { fotoSampah = it }
+    val ambilFotoSampah = rememberCameraCapture(label = "FOTO SAMPAH (NASABAH)") { fotoSampah = it }
 
     val fusedLocationClient = remember { LocationServices.getFusedLocationProviderClient(context) }
     var pickupLat by remember { mutableStateOf(0.0) }
@@ -608,10 +608,10 @@ fun JemputSampahScreen(
                                 AsyncImage(
                                     model = foto,
                                     contentDescription = "Foto sampah",
-                                    contentScale = ContentScale.Crop,
+                                    contentScale = ContentScale.Fit,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .height(180.dp)
+                                        .heightIn(max = 240.dp)
                                         .padding(top = 8.dp)
                                         .clip(RoundedCornerShape(14.dp))
                                 )

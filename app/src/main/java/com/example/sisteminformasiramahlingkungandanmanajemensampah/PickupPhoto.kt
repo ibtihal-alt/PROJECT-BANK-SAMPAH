@@ -4,7 +4,9 @@ import android.content.ActivityNotFoundException
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.graphics.Matrix
+import android.graphics.Paint
 import android.media.ExifInterface
 import android.net.Uri
 import android.widget.Toast
@@ -51,6 +53,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.TimeZone
 
 // Tahap foto penjemputan (bagian dari ID dokumen pickup_photos)
 const val FOTO_NASABAH = "nasabah"
@@ -67,8 +73,92 @@ val TAHAP_FOTO_SEMUA = listOf(
 private const val MAX_SIDE_PX = 1280
 private const val MAX_JPEG_BYTES = 700_000
 
-// Foto kamera dikecilkan agar muat di satu dokumen Firestore (maks 1 MB) dan diputar sesuai EXIF
-fun compressPhoto(context: Context, uri: Uri): ByteArray {
+/**
+ * Menambahkan watermark timestamp & label real-time permanen pada Bitmap foto.
+ * Dilengkapi kotak transparan gelap dengan aksen hijau agar teks selalu kontras dan terbaca.
+ */
+fun addTimestampWatermark(originalBitmap: Bitmap, label: String? = null): Bitmap {
+    val mutableBitmap = if (originalBitmap.isMutable) {
+        originalBitmap
+    } else {
+        originalBitmap.copy(Bitmap.Config.ARGB_8888, true)
+    } ?: originalBitmap
+
+    val canvas = Canvas(mutableBitmap)
+    val width = mutableBitmap.width
+    val height = mutableBitmap.height
+
+    val sdf = SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault())
+    val currentTime = sdf.format(Date())
+    val tz = TimeZone.getDefault().getDisplayName(false, TimeZone.SHORT, Locale.getDefault())
+
+    val displayLabel = if (!label.isNullOrBlank()) label.trim().uppercase(Locale.getDefault()) else "BUKTI REAL-TIME"
+    val titleText = "● $displayLabel"
+    val timeText = "$currentTime $tz"
+
+    // Ukuran font proporsional dengan dimensi foto
+    val baseFontSize = (minOf(width, height) * 0.034f).coerceIn(24f, 44f)
+
+    val titlePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.parseColor("#4ADE80") // Hijau emerald cerah
+        textSize = baseFontSize
+        isFakeBoldText = true
+        setShadowLayer(4f, 2f, 2f, android.graphics.Color.BLACK)
+    }
+
+    val timePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE
+        textSize = baseFontSize * 0.92f
+        isFakeBoldText = true
+        setShadowLayer(4f, 2f, 2f, android.graphics.Color.BLACK)
+    }
+
+    val titleWidth = titlePaint.measureText(titleText)
+    val timeWidth = timePaint.measureText(timeText)
+    val maxTextWidth = maxOf(titleWidth, timeWidth)
+
+    val lineHeight = baseFontSize * 1.35f
+    val paddingH = baseFontSize * 0.85f
+    val paddingV = baseFontSize * 0.65f
+
+    val boxWidth = maxTextWidth + (paddingH * 2)
+    val boxHeight = (lineHeight * 2) + (paddingV * 2)
+
+    val margin = baseFontSize * 0.75f
+    val left = margin
+    val bottom = height - margin
+    val top = bottom - boxHeight
+    val right = left + boxWidth
+
+    // Kotak background semi-transparan hitam dengan sudut melengkung
+    val bgPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.argb(175, 15, 23, 42) // Slate gelap transparan
+        style = Paint.Style.FILL
+    }
+    val cornerRadius = baseFontSize * 0.35f
+    canvas.drawRoundRect(left, top, right, bottom, cornerRadius, cornerRadius, bgPaint)
+
+    // Border tipis dengan aksen hijau
+    val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.argb(130, 74, 222, 128)
+        style = Paint.Style.STROKE
+        strokeWidth = maxOf(2f, baseFontSize * 0.06f)
+    }
+    canvas.drawRoundRect(left, top, right, bottom, cornerRadius, cornerRadius, borderPaint)
+
+    val textX = left + paddingH
+    val titleY = top + paddingV + baseFontSize
+    val timeY = titleY + lineHeight
+
+    canvas.drawText(titleText, textX, titleY, titlePaint)
+    canvas.drawText(timeText, textX, timeY, timePaint)
+
+    return mutableBitmap
+}
+
+// Foto kamera dikecilkan agar muat di satu dokumen Firestore (maks 1 MB), diputar sesuai EXIF,
+// dan diberi watermark timestamp real-time permanen
+fun compressPhoto(context: Context, uri: Uri, watermarkLabel: String? = null): ByteArray {
     val resolver = context.contentResolver
     val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
     resolver.openInputStream(uri).use { BitmapFactory.decodeStream(it, null, bounds) }
@@ -90,20 +180,23 @@ fun compressPhoto(context: Context, uri: Uri): ByteArray {
 
     val scale = minOf(1f, MAX_SIDE_PX.toFloat() / maxOf(decoded.width, decoded.height))
     val matrix = Matrix().apply { postScale(scale, scale); postRotate(rotation) }
-    val bitmap = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
+    val baseBitmap = Bitmap.createBitmap(decoded, 0, 0, decoded.width, decoded.height, matrix, true)
+
+    // Tempelkan timestamp & label otentikasi real-time pada foto
+    val watermarkedBitmap = addTimestampWatermark(baseBitmap, watermarkLabel)
 
     var quality = 80
     while (true) {
         val out = ByteArrayOutputStream()
-        bitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)
+        watermarkedBitmap.compress(Bitmap.CompressFormat.JPEG, quality, out)
         if (out.size() <= MAX_JPEG_BYTES || quality <= 30) return out.toByteArray()
         quality -= 10
     }
 }
 
-// Kamera langsung tanpa pilihan galeri (bukti foto asli, seperti kurir ekspedisi); hasil sudah dikompres
+// Kamera langsung tanpa pilihan galeri (bukti foto asli, seperti kurir ekspedisi); hasil sudah dikompres dan ber-timestamp
 @Composable
-fun rememberCameraCapture(onPhoto: (ByteArray) -> Unit): () -> Unit {
+fun rememberCameraCapture(label: String? = null, onPhoto: (ByteArray) -> Unit): () -> Unit {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var pendingUri by rememberSaveable { mutableStateOf<Uri?>(null) }
@@ -112,7 +205,7 @@ fun rememberCameraCapture(onPhoto: (ByteArray) -> Unit): () -> Unit {
         if (success && uri != null) {
             scope.launch {
                 try {
-                    onPhoto(withContext(Dispatchers.IO) { compressPhoto(context, uri) })
+                    onPhoto(withContext(Dispatchers.IO) { compressPhoto(context, uri, label) })
                 } catch (e: Exception) {
                     Toast.makeText(context, "Foto gagal diproses: ${e.message}", Toast.LENGTH_SHORT).show()
                 }
@@ -187,7 +280,15 @@ fun FotoTahapButton(pickup: PickupTransaction, tahap: String, label: String, mod
     val scope = rememberCoroutineScope()
     val foto = rememberPickupPhoto(pickup.firebaseId, tahap)
     var uploading by remember { mutableStateOf(false) }
-    val takePhoto = rememberCameraCapture { bytes ->
+
+    val watermarkLabel = when (tahap) {
+        FOTO_AMBIL -> "KURIR: AMBIL SAMPAH"
+        FOTO_SELESAI -> "KURIR: TIMBANGAN"
+        FOTO_NASABAH -> "NASABAH: SAMPAH"
+        else -> label.uppercase(Locale.getDefault())
+    }
+
+    val takePhoto = rememberCameraCapture(label = watermarkLabel) { bytes ->
         uploading = true
         scope.launch {
             try {
